@@ -1,0 +1,50 @@
+/* ============================================================
+   Badges, status dots, live pulse
+   ============================================================ */
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 8px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  font-size: 11px; font-weight: 500;
+  color: var(--text-secondary);
+}
+.badge-dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--text-tertiary);
+}
+.badge-positive { background: var(--positive-soft); color: var(--positive); border-color: transparent; }
+.badge-positive .badge-dot { background: var(--positive); }
+.badge-warning  { background: var(--warning-soft);  color: var(--warning);  border-color: transparent; }
+.badge-warning  .badge-dot { background: var(--warning); }
+.badge-danger   { background: var(--danger-soft);   color: var(--danger);   border-color: transparent; }
+.badge-danger   .badge-dot { background: var(--danger); }
+.badge-accent   { background: var(--accent-soft);   color: var(--accent);   border-color: transparent; }
+.badge-accent   .badge-dot { background: var(--accent); }
+
+/* Tiny dot status (used standalone, e.g. for nav alerts) */
+.dot { width: 6px; height: 6px; border-radius: 999px; display: inline-block; background: var(--text-tertiary); }
+.dot-positive { background: var(--positive); box-shadow: 0 0 0 3px var(--positive-soft); }
+.dot-accent   { background: var(--accent);   box-shadow: 0 0 0 3px var(--accent-soft); }
+.dot-warning  { background: var(--warning);  box-shadow: 0 0 0 3px var(--warning-soft); }
+.dot-danger   { background: var(--danger);   box-shadow: 0 0 0 3px var(--danger-soft); }
+
+/* Live pulse — a pill with a soft pulsing dot */
+.live-pulse {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px; padding: 0 10px 0 8px;
+  border-radius: 999px;
+  background: var(--positive-soft); color: var(--positive);
+  font-size: 11px; font-weight: 600;
+}
+.live-pulse::before {
+  content: ''; width: 6px; height: 6px; border-radius: 999px;
+  background: var(--positive);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%,100% { box-shadow: 0 0 0 0 var(--positive-soft); }
+  50%     { box-shadow: 0 0 0 6px transparent; }
+}

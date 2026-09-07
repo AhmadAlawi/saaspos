@@ -1,0 +1,453 @@
+/* ============================================================
+   Form controls — input, textarea, select, field-label
+   ============================================================ */
+
+.pos-input {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+  border-radius: 8px;
+  height: 44px;
+  padding-inline: 12px;
+  font-size: 14px;
+  width: 100%;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.pos-input::placeholder { color: var(--text-tertiary); }
+.pos-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+textarea.pos-input {
+  height: auto;
+  padding-block: 10px;
+  line-height: 1.5;
+  resize: vertical;
+}
+/* Use `background-color` (not the shorthand) so the chevron settings on
+   `select.pos-input` further down aren't reset to defaults — the
+   shorthand would force `background-repeat` back to `repeat` and the
+   chevron would tile across the select in dark mode. */
+.dark .pos-input { background-color: var(--bg-elevated); }
+
+/* Select dropdown — replace the browser-default arrow with a custom
+   chevron so we control spacing. Text gets 12px left padding and a
+   matching 12px right padding outside the chevron (16px chevron sits
+   in the gap between text and right edge → 40px right inner padding). */
+select.pos-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-inline: 12px 40px;
+  background-color: var(--bg-surface);
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394959B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+  cursor: pointer;
+}
+:where([dir="rtl"]) select.pos-input {
+  background-position: left 12px center;
+}
+.dark select.pos-input {
+  background-color: var(--bg-elevated);
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A6A7AE' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+/* Disabled options (e.g. cyclic parents) stay dim so users see why. */
+select.pos-input option:disabled { color: var(--text-tertiary); }
+
+/* File input — native <input type="file"> styled to mirror .pos-input.
+   The browser default ("Choose File  No file chosen") is replaced: the
+   field itself becomes the pos-input box and the built-in selector
+   button is restyled into a pos-btn-like chip. No JS — the file still
+   submits natively with the surrounding multipart form. */
+.pos-file {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  height: 44px;
+  width: 100%;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding-inline: 6px 12px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.pos-file:focus,
+.pos-file:focus-within {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.dark .pos-file { background-color: var(--bg-elevated); }
+
+.pos-file::file-selector-button {
+  appearance: none;
+  -webkit-appearance: none;
+  margin-inline-end: 12px;
+  padding-block: 7px;
+  padding-inline: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.pos-file::file-selector-button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+.dark .pos-file::file-selector-button { background: var(--bg-surface); }
+
+/* Styled file picker — dashed drop-zone + filename chip (Alpine
+   `fileUpload`). Replaces the bare native control; see
+   <x-admin.file-upload>. The native <input> is visually hidden but
+   stays in the DOM so the file submits with the multipart form. */
+.pos-file-drop { display: block; }
+.pos-file-drop-input {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+.pos-file-drop-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: start;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+.dark .pos-file-drop-zone { background: var(--bg-elevated); }
+.pos-file-drop-zone:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
+}
+.pos-file-drop-zone.is-dragover {
+  border-color: var(--accent);
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.pos-file-drop-zone:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.pos-file-drop-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px; height: 38px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  color: var(--accent);
+}
+.dark .pos-file-drop-icon { background: var(--bg-surface); }
+.pos-file-drop-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pos-file-drop-title { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.pos-file-drop-sub   { font-size: 12px; color: var(--text-tertiary); }
+
+.pos-file-drop-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-surface);
+}
+.dark .pos-file-drop-chip { background: var(--bg-elevated); }
+.pos-file-drop-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+.pos-file-drop-chip-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.pos-file-drop-chip-name {
+  font-size: 13.5px; font-weight: 500; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pos-file-drop-chip-size { font-size: 11.5px; color: var(--text-tertiary); }
+.pos-file-drop-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 30px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  color: var(--text-tertiary);
+  transition: background 120ms ease, color 120ms ease;
+}
+.pos-file-drop-clear:hover { background: var(--bg-hover); color: var(--danger); }
+
+.pos-file-drop-error { margin-top: 6px; font-size: 12px; color: var(--danger); }
+
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+/* Required-field indicator. Add `.is-required` to a .field-label to
+   render a red asterisk after the text. Used across every form. */
+.field-label.is-required::after {
+  content: '*';
+  color: var(--danger);
+  margin-inline-start: 4px;
+  font-weight: 700;
+}
+
+
+/* Money input — wraps an `<input type="number">` and absolute-positions
+   a currency-symbol span on the inside-start edge. The input gets extra
+   inline-start padding so digits don't collide with the symbol.
+   `inset-inline-start` makes RTL Just Work. Rendered by the
+   <x-admin.money-input> component; reusable across the whole app. */
+.pos-money {
+  position: relative;
+}
+.pos-money-symbol {
+  position: absolute;
+  inset-inline-start: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  font-size: 13px;
+  pointer-events: none;
+  z-index: 1;
+}
+.pos-money .pos-input {
+  padding-inline-start: 28px;
+}
+
+/* ============================================================
+   Form stack — canonical vertical rhythm for a column of fields.
+   Use on a wrapper, NOT per-field margin. Three densities; the
+   14px default keeps two labels visually close together which
+   is the project's preferred density (the eyebrow-style labels
+   are tight to their inputs, so we don't need extra breathing
+   room between fields).
+       <div class="form-stack">
+         <label class="field"> … </label>
+         <label class="field"> … </label>
+       </div>
+   ============================================================ */
+.form-stack       { display: flex; flex-direction: column; gap: 14px; }
+.form-stack-loose { gap: 22px; }
+.form-stack-airy  { gap: 28px; }
+
+/* A single field row — label on top, input below. Acts as a clean
+   reset (display: block) so nested labels behave predictably. */
+.field { display: block; }
+
+/* Help text shown under an input. */
+.field-help {
+  display: block;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+/* Validation errors are surfaced via the toast store (`messages: [...]`
+   list) — NOT as inline text under each input. The convention is
+   consistent across the admin: one summary toast lists every error;
+   the offending fields turn red so the user can spot them.
+
+   The `<p class="field-error">…</p>` element is kept in the DOM (every
+   `@error('field')` block in existing server-rendered forms still
+   emits it) so the `:has(> .field-error)` selector can trigger the red
+   border. Its text content is hidden — never read directly by the user.
+
+   For Alpine factories that toggle the state explicitly, the parent
+   `.field` gets `:class="{ 'has-error': fieldErrors.code }"` and the
+   same red-border rules fire. No inline `<template x-if>` needed. */
+.field-error {
+  display: none;
+}
+.field:has(> .field-error) .pos-input,
+.field.has-error .pos-input {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+.field:has(> .field-error) .pos-input:focus,
+.field.has-error .pos-input:focus {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+/* Standalone inputs marked directly (table-cell inputs with no `.field`
+   wrapper, e.g. the purchase line items). */
+.pos-input.has-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+.pos-input.has-error:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
+/* Enhanced (TomSelect) controls inside an errored `.field`. */
+.field.has-error .ts-control {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* Inline checkbox + label row (e.g. "Is active", "Remember me"). */
+.field-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding-block: 4px;
+}
+.field-toggle:hover { color: var(--text-primary); }
+
+/* Custom checkbox — strips the native rendering and paints our own.
+   Gets a white checkmark on accent fill when checked. Applied to every
+   checkbox wrapped by .field-toggle (Active toggles, Remember me, …) and
+   to any standalone checkbox tagged `.pos-check` (permission matrix,
+   table selectors, etc.) so all checkboxes share one look. */
+.field-toggle input[type="checkbox"],
+input[type="checkbox"].pos-check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  position: relative;
+  margin: 0;
+  border: 1.5px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.dark .field-toggle input[type="checkbox"],
+.dark input[type="checkbox"].pos-check { background: var(--bg-elevated); }
+.field-toggle input[type="checkbox"]:hover,
+input[type="checkbox"].pos-check:hover { border-color: var(--accent); }
+.field-toggle input[type="checkbox"]:focus-visible,
+input[type="checkbox"].pos-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+  border-color: var(--accent);
+}
+.field-toggle input[type="checkbox"]:checked,
+input[type="checkbox"].pos-check:checked {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+}
+/* Indeterminate (group partially selected) — a dash instead of a tick. */
+input[type="checkbox"].pos-check:indeterminate {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+}
+.field-toggle input[type="checkbox"]:disabled,
+input[type="checkbox"].pos-check:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Custom radio — the same painted treatment as .pos-check, but circular
+   with an accent dot when selected. Use on any <input type="radio"
+   class="pos-radio"> so radios share one look with the rest of the system. */
+input[type="radio"].pos-radio {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1.5px solid var(--border-default);
+  border-radius: 50%;
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.dark input[type="radio"].pos-radio { background: var(--bg-elevated); }
+input[type="radio"].pos-radio:hover { border-color: var(--accent); }
+input[type="radio"].pos-radio:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+  border-color: var(--accent);
+}
+input[type="radio"].pos-radio:checked {
+  border-color: var(--accent);
+  /* Centre dot via gradient (not box-shadow) so it composes with the
+     focus ring above. */
+  background-image: radial-gradient(circle at center, var(--accent) 0 4px, transparent 4.5px);
+}
+input[type="radio"].pos-radio:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Input wrapper — relative container that lets us place a small
+   trailing button or icon INSIDE the input visual area (e.g. the
+   show-password eye, a search clear button, a unit suffix).
+   ============================================================ */
+.pos-input-wrap {
+  position: relative;
+  display: block;
+}
+/* When a trailing button is present, reserve room for it. */
+.pos-input-wrap.has-suffix .pos-input { padding-inline-end: 44px; }
+
+.pos-input-suffix {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: 6px;
+  transition: background 100ms ease, color 100ms ease;
+}
+/* Hover: only change the icon colour. A background fill would visually
+   overlap the input's interior + border, which looks busy. */
+.pos-input-suffix:hover { color: var(--text-primary); }
+.pos-input-suffix:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-ring);
+  color: var(--text-primary);
+}

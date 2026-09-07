@@ -1,0 +1,664 @@
+/* ============================================================
+   POS — Self-Ordering Kiosk entry
+   A customer-operated, touch-first ordering app. Loads the shared
+   design system (tokens + dark mode + base + forms/buttons) then
+   layers the kiosk layout: big targets, generous type, glanceable.
+   RTL-safe — logical properties only. Dark-mode parity via tokens.
+   See docs/features/kiosk-self-ordering.md.
+   ============================================================ */
+
+@import '../app.css';
+
+.kiosk {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(1200px 620px at 50% -10%, var(--accent-soft), transparent 60%),
+        var(--bg-page);
+    color: var(--text-primary);
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.kiosk > section { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ── Shared bits ─────────────────────────────────────────── */
+.k-logo {
+    width: 64px; height: 64px; border-radius: 18px;
+    background: var(--accent); color: var(--accent-fg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 800; letter-spacing: -0.02em; flex: 0 0 auto;
+    box-shadow: var(--shadow-card);
+}
+.k-logo-sm { width: 40px; height: 40px; border-radius: 12px; font-size: 17px; }
+.k-logo-img { height: 56px; width: auto; max-width: 220px; object-fit: contain; }
+.k-logo-img-sm { height: 34px; max-width: 150px; }
+.k-brand { display: flex; align-items: center; gap: 16px; }
+.k-brand-text { text-align: start; line-height: 1.15; }
+.k-store { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.k-substore { font-size: 12.5px; color: var(--text-tertiary); margin-top: 1px; }
+.k-status {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 600; color: var(--positive); margin-top: 3px;
+}
+.k-dot {
+    width: 8px; height: 8px; border-radius: 999px; background: var(--positive);
+    box-shadow: 0 0 0 3px var(--positive-soft); display: inline-block;
+}
+.k-thumb-ph { font-size: 1.6rem; font-weight: 700; color: var(--text-tertiary); }
+
+/* ── The one primary call-to-action ──────────────────────── */
+.k-cta {
+    height: 76px; inline-size: 100%; border-radius: 18px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: var(--accent); color: var(--accent-fg);
+    font-size: 20px; font-weight: 600; letter-spacing: -0.01em;
+    transition: filter .12s, transform .08s; cursor: pointer;
+}
+.k-cta:active { filter: brightness(0.94); transform: translateY(1px); }
+
+/* The attract screen's single "touch to start" target. A flat rectangle
+   reads as a form button; this is the one thing a shopper should want to
+   press, so it gets a pill, a lit edge, and a coloured drop shadow that
+   lifts it off the page. The pulse is a slow halo rather than a hard ring
+   so it invites without nagging. */
+.k-cta-pulse {
+    inline-size: auto; min-inline-size: 320px; max-inline-size: 480px;
+    height: 82px; padding-inline: 44px; border-radius: 18px;
+    font-size: 21px; font-weight: 650;
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--accent) 92%, #fff) 0%,
+        var(--accent) 55%,
+        color-mix(in srgb, var(--accent) 92%, #000) 100%);
+    box-shadow:
+        0 1px 0 0 color-mix(in srgb, #fff 28%, transparent) inset,
+        0 18px 38px -14px color-mix(in srgb, var(--accent) 70%, transparent),
+        0 6px 14px -8px rgba(0, 0, 0, 0.28);
+    animation: k-pulse 2.8s ease-in-out infinite;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+}
+.k-cta-pulse:hover { transform: translateY(-2px); }
+.k-cta-pulse:active { transform: translateY(1px) scale(0.99); filter: brightness(0.95); }
+@keyframes k-pulse {
+    0%, 100% { box-shadow:
+        0 1px 0 0 color-mix(in srgb, #fff 28%, transparent) inset,
+        0 18px 38px -14px color-mix(in srgb, var(--accent) 70%, transparent),
+        0 0 0 0 var(--accent-ring); }
+    50%      { box-shadow:
+        0 1px 0 0 color-mix(in srgb, #fff 28%, transparent) inset,
+        0 18px 38px -14px color-mix(in srgb, var(--accent) 70%, transparent),
+        0 0 0 18px transparent; }
+}
+/* Honour a reduced-motion preference — the halo is decorative. */
+@media (prefers-reduced-motion: reduce) {
+    .k-cta-pulse { animation: none; }
+    .k-attract-media { animation: none; }
+}
+
+/* ══════════════ ATTRACT ══════════════ */
+.k-attract { align-items: center; justify-content: center; cursor: pointer; }
+.k-attract-inner {
+    flex: 1 1 auto; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; gap: 44px; padding-inline: 32px;
+}
+.k-hero-title {
+    font-size: clamp(40px, 6vw, 76px); line-height: 1.03; font-weight: 700;
+    letter-spacing: -0.025em;
+}
+.k-hero-sub { font-size: 18px; color: var(--text-secondary); margin-top: 18px; }
+
+/* Attract slideshow — matted gallery frame, matching the CFD showcase.
+   A soft outer mat holds the image on a clean nested radius so any
+   uploaded flyer looks intentionally presented, not clipped to the edge. */
+.k-attract-media {
+    position: relative; inline-size: min(1200px, 90vw); aspect-ratio: 16 / 6;
+    border-radius: 26px; padding: 14px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    /* Warm, layered shadow — an orange-tinted glow + a soft neutral. */
+    box-shadow:
+        0 30px 70px -34px rgba(234, 88, 12, 0.30),
+        0 14px 30px -20px rgba(35, 25, 15, 0.15);
+    animation: k-attract-bob 7s ease-in-out infinite;
+}
+@keyframes k-attract-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+/* Inner stage — clips the rotating slides to a smaller nested radius. */
+.k-attract-stage {
+    position: relative; inline-size: 100%; block-size: 100%;
+    border-radius: 15px; overflow: hidden;
+    background: var(--bg-elevated);
+    box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.k-attract-slide {
+    position: absolute; inset: 0; inline-size: 100%; block-size: 100%;
+    object-fit: cover; transition: opacity 0.7s ease;
+}
+.k-attract-dots {
+    position: absolute; inset-block-end: 14px; inset-inline: 0;
+    display: flex; justify-content: center; gap: 6px; z-index: 2;
+}
+.k-attract-dots i {
+    inline-size: 8px; block-size: 8px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.6); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: inline-size 220ms ease, background 220ms ease;
+}
+.k-attract-dots i.on { inline-size: 24px; background: var(--accent); }
+
+/* ══════════════ BROWSE / CART shared header ══════════════ */
+.k-head {
+    flex: 0 0 auto; height: 68px; display: flex; align-items: center;
+    justify-content: space-between; gap: 12px;
+    padding-inline: 24px; background: var(--bg-surface);
+    border-block-end: 1px solid var(--border-subtle);
+}
+.k-head-brand { display: flex; align-items: center; gap: 12px; }
+.k-head-title { font-size: 16px; font-weight: 600; }
+
+/* Press-and-hold target that replaces the old close button. Nothing about it
+   advertises itself — no cursor change, no hover state — until staff actually
+   hold it, at which point a progress bar fills across the bottom edge. */
+.k-exit-hold {
+    position: relative;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    padding-block: 8px; padding-inline-end: 8px;
+}
+.k-hold-bar {
+    position: absolute; inset-inline: 0; inset-block-end: 0;
+    block-size: 3px; border-radius: 999px; overflow: hidden;
+    background: var(--border-subtle);
+}
+.k-hold-bar i {
+    display: block; block-size: 100%; inline-size: 0;
+    background: var(--accent);
+    animation: k-hold-fill 3s linear forwards;   /* matches EXIT_HOLD_MS */
+}
+@keyframes k-hold-fill { from { inline-size: 0; } to { inline-size: 100%; } }
+.k-exit-hold.is-holding { opacity: 0.85; }
+.k-head-spacer { inline-size: 130px; }
+.k-icon-btn {
+    inline-size: 46px; block-size: 46px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); border: 1px solid var(--border-subtle);
+    background: var(--bg-surface);
+}
+.k-icon-btn:active { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
+/* Language toggle badge — sits inside a .k-icon-btn (see <x-lang-toggle>). */
+.lang-toggle-code { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; }
+.k-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 14.5px; font-weight: 600; color: var(--text-secondary);
+    padding-inline: 12px; block-size: 46px; border-radius: 12px;
+}
+.k-back:active { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
+
+/* ── Search ──────────────────────────────────────────────── */
+.k-search-bar {
+    flex: 0 0 auto; padding: 12px 24px; background: var(--bg-surface);
+    border-block-end: 1px solid var(--border-subtle);
+}
+.k-search { position: relative; max-inline-size: 720px; margin-inline: auto; }
+.k-search-ic {
+    position: absolute; inset-inline-start: 16px; inset-block-start: 50%;
+    transform: translateY(-50%); color: var(--text-tertiary); pointer-events: none;
+}
+.k-search-input {
+    inline-size: 100%; block-size: 54px; border-radius: 14px;
+    padding-inline: 48px 16px; font-size: 16px;
+    background: var(--bg-page); color: var(--text-primary);
+    border: 1px solid var(--border-default);
+}
+.k-search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.k-search-input::placeholder { color: var(--text-tertiary); }
+
+/* ── Category chips ──────────────────────────────────────── */
+.k-cats {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+    padding: 12px 20px; overflow-x: auto; scrollbar-width: none;
+    border-block-end: 1px solid var(--border-subtle);
+}
+.k-cats::-webkit-scrollbar { display: none; }
+.k-cat {
+    flex: 0 0 auto; block-size: 52px; padding-inline: 22px; border-radius: 14px;
+    font-size: 15px; font-weight: 600; color: var(--text-secondary);
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    transition: background .12s, color .12s, border-color .12s; white-space: nowrap;
+}
+.k-cat.is-active { background: var(--accent); border-color: transparent; color: var(--accent-fg); }
+
+/* ── Product grid ────────────────────────────────────────── */
+.k-grid-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 20px 20px 112px; }
+.k-grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.k-note { text-align: center; padding-block: 80px; color: var(--text-tertiary); font-size: 15px; }
+.k-tile {
+    display: flex; flex-direction: column; gap: 10px; text-align: start;
+    padding: 12px; border-radius: 16px; min-block-size: 200px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    transition: transform .08s, border-color .12s, box-shadow .12s; cursor: pointer;
+}
+.k-tile:active { transform: scale(0.97); }
+.k-tile:hover { border-color: var(--accent); box-shadow: 0 6px 20px -12px var(--accent-ring); }
+.k-thumb {
+    aspect-ratio: 1 / 1; border-radius: 12px; overflow: hidden;
+    background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+    display: flex; align-items: center; justify-content: center;
+}
+.k-thumb img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.k-tile-name { flex: 1 1 auto; font-size: 15px; font-weight: 500; line-height: 1.3; }
+.k-tile-foot { display: flex; align-items: flex-end; justify-content: space-between; }
+.k-price-group { display: flex; align-items: baseline; gap: 6px; }
+.k-price { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.k-price-was {
+    font-size: 13px; font-weight: 400; color: var(--text-tertiary);
+    text-decoration: line-through; font-variant-numeric: tabular-nums;
+}
+.k-add {
+    inline-size: 36px; block-size: 36px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-soft); color: var(--accent);
+}
+
+/* Variant "N options" / combo badge on the tile thumbnail. */
+.k-thumb { position: relative; }
+.k-opts-badge {
+    position: absolute; inset-block-start: 8px; inset-inline-end: 8px;
+    padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: var(--accent); color: var(--accent-fg);
+    box-shadow: 0 2px 8px -2px var(--accent-ring);
+}
+.k-combo-badge {
+    background: var(--positive, #16a34a); color: #fff;
+    inset-inline: auto 8px; inset-block-start: 8px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px;
+}
+
+/* Combo tile — the "what's in the meal" one-liner under the name. */
+.k-tile-name { flex: 0 0 auto; }
+.k-tile-kit {
+    flex: 1 1 auto; font-size: 12.5px; line-height: 1.35; color: var(--text-tertiary);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ── Kit / combo details sheet ───────────────────────────── */
+.k-kit-modal { inline-size: min(480px, 92vw); text-align: start; }
+.k-kit-hero { display: flex; align-items: center; gap: 14px; margin-block-end: 16px; }
+.k-kit-thumb {
+    position: relative; inline-size: 88px; block-size: 88px; border-radius: 16px; flex: none;
+    overflow: hidden; background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+    display: flex; align-items: center; justify-content: center;
+}
+.k-kit-thumb img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.k-kit-herometa { min-inline-size: 0; }
+.k-kit-price { font-size: 20px; font-weight: 700; margin-block-start: 4px; color: var(--accent); display: flex; align-items: baseline; gap: 6px; }
+.k-kit-included {
+    font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-tertiary); margin-block-end: 10px;
+}
+.k-kit-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-block-size: 46vh; overflow-y: auto; margin: 0; padding: 0; list-style: none;
+}
+.k-kit-row {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 10px 12px; border-radius: 12px;
+    background: var(--bg-page); border: 1px solid var(--border-subtle);
+}
+.k-kit-qty {
+    flex: none; min-inline-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--accent);
+}
+.k-kit-name { flex: 1 1 auto; font-size: 15px; font-weight: 500; }
+.k-kit-variant {
+    display: inline-block; margin-inline-start: 6px; font-size: 12.5px; font-weight: 500;
+    color: var(--text-tertiary);
+}
+.k-kit-actions { grid-template-columns: 1fr 1.4fr; }
+
+/* ── Variant picker sheet ────────────────────────────────── */
+.k-variant-modal { inline-size: min(480px, 92vw); text-align: start; }
+.k-variant-head { margin-block-end: 14px; }
+.k-variant-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-block-size: 52vh; overflow-y: auto; margin: 0; padding: 0; list-style: none;
+}
+.k-variant {
+    inline-size: 100%; display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 14px; cursor: pointer; text-align: start;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    transition: border-color .12s, box-shadow .12s, transform .08s;
+}
+.k-variant:hover { border-color: var(--accent); box-shadow: 0 6px 20px -14px var(--accent-ring); }
+.k-variant:active { transform: scale(0.98); }
+.k-variant:disabled { opacity: .5; cursor: not-allowed; }
+.k-variant-thumb {
+    inline-size: 44px; block-size: 44px; border-radius: 10px; overflow: hidden; flex: none;
+    background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+    display: flex; align-items: center; justify-content: center;
+}
+.k-variant-thumb img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.k-variant-label { flex: 1 1 auto; font-size: 15px; font-weight: 500; }
+.k-variant-price { font-size: 16px; font-weight: 600; display: flex; align-items: baseline; gap: 6px; }
+.k-variant-price-was {
+    font-size: 13px; font-weight: 400; color: var(--text-tertiary);
+    text-decoration: line-through; font-variant-numeric: tabular-nums;
+}
+.k-variant-actions { grid-template-columns: 1fr; }
+
+/* ── Sticky cart bar ─────────────────────────────────────── */
+/* Floats clear of the grid rather than sitting on it as a slab: a pill with
+   its own coloured shadow, so the grid keeps scrolling visibly underneath. */
+.k-cartbar {
+    position: absolute; inset-inline: 0; inset-block-end: 0;
+    padding: 16px 20px 20px;
+    /* Fade the grid out behind the bar instead of cutting it off hard. */
+    background: linear-gradient(to top,
+        var(--bg-page) 40%,
+        color-mix(in srgb, var(--bg-page) 60%, transparent) 72%,
+        transparent 100%);
+    pointer-events: none;
+}
+.k-cartbar > * { pointer-events: auto; }
+.k-cta-bar {
+    max-inline-size: 680px; margin-inline: auto;
+    justify-content: space-between; padding-inline: 12px 28px;
+    height: 72px; border-radius: 18px;
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--accent) 92%, #fff) 0%,
+        var(--accent) 60%,
+        color-mix(in srgb, var(--accent) 94%, #000) 100%);
+    box-shadow:
+        0 1px 0 0 color-mix(in srgb, #fff 26%, transparent) inset,
+        0 16px 34px -12px color-mix(in srgb, var(--accent) 66%, transparent),
+        0 4px 12px -6px rgba(0, 0, 0, 0.25);
+    font-size: 19px;
+    transition: transform .12s ease, filter .12s ease;
+}
+.k-cta-bar:hover { transform: translateY(-2px); }
+.k-cta-bar:active { transform: translateY(1px); filter: brightness(0.95); }
+.k-cta-left { display: flex; align-items: center; gap: 14px; }
+/* The count reads as a token on the button, not a hole punched in it. */
+.k-count {
+    inline-size: 48px; block-size: 48px; border-radius: 999px;
+    background: color-mix(in srgb, #000 16%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #fff 20%, transparent) inset;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+/* ══════════════ CART ══════════════ */
+.k-cart-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 420px; }
+@media (max-width: 900px) { .k-cart-body { grid-template-columns: 1fr; } }
+.k-lines-col { min-height: 0; overflow-y: auto; padding: 28px 24px 32px; }
+.k-lines { max-inline-size: 780px; margin-inline: auto; display: flex; flex-direction: column; gap: 12px; }
+.k-line {
+    display: flex; align-items: center; gap: 16px; padding: 14px;
+    border-radius: 18px; background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    transition: border-color .12s ease, box-shadow .12s ease;
+}
+.k-line:hover {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border-subtle));
+    box-shadow: 0 8px 24px -18px var(--accent);
+}
+.k-line-thumb {
+    inline-size: 68px; block-size: 68px; border-radius: 14px; overflow: hidden; flex: 0 0 auto;
+    background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+    display: flex; align-items: center; justify-content: center;
+}
+.k-line-thumb img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.k-line-main { flex: 1 1 auto; min-inline-size: 0; }
+.k-line-name { font-size: 15.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-line-each { font-size: 13px; color: var(--text-tertiary); margin-block-start: 2px; font-variant-numeric: tabular-nums; }
+.k-line-amt { inline-size: 96px; text-align: end; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.k-line-del {
+    inline-size: 44px; block-size: 44px; border-radius: 12px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center; color: var(--text-tertiary);
+    transition: color .12s ease, background .12s ease;
+}
+.k-line-del:hover { color: var(--danger); background: var(--danger-soft); }
+.k-line-del:active { background: var(--danger-soft); color: var(--danger); }
+
+/* Quantity stepper — large touch targets. Radius tracks the design system's
+   input family (8px base, nudged up for the touch height), NOT a pill. */
+.k-step {
+    display: flex; align-items: center; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border-default); background: var(--bg-page);
+}
+.k-step button {
+    inline-size: 48px; block-size: 48px; display: flex; align-items: center; justify-content: center;
+    background: transparent; color: var(--text-secondary);
+    transition: background .12s ease, color .12s ease;
+}
+.k-step button:hover { background: var(--accent-soft); color: var(--accent); }
+.k-step button:active { background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
+.k-step-val { min-inline-size: 48px; text-align: center; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Details + note — one panel inside the summary rail, sitting on the rail's
+   surface as an inset block (same treatment as the total). Full-width fields:
+   the rail is 420px, so a two-up name/phone row would leave each input too
+   narrow to read its own placeholder. */
+.k-cart-panel {
+    margin: 18px 16px 4px;
+    display: flex; flex-direction: column; gap: 18px;
+    padding: 16px; border-radius: 16px;
+    background: var(--bg-page); border: 1px solid var(--border-subtle);
+}
+.k-note-field, .k-cust-field { margin: 0; }
+.k-cart-panel .field-label,
+.k-cust-field .field-label {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-tertiary); margin-block-end: 8px;
+}
+.k-req { color: var(--danger); font-weight: 700; }
+.k-cust-inputs { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.k-cart-panel .pos-input {
+    block-size: 52px; border-radius: 12px;
+    background: var(--bg-surface);
+}
+
+/* Supervisor exit form */
+.k-exit-form { display: flex; flex-direction: column; gap: 10px; margin-block: 16px 4px; text-align: start; }
+.k-exit-error { font-size: 13px; color: var(--danger); font-weight: 600; }
+
+/* Empty state */
+.k-empty { text-align: center; padding-block: 80px; }
+.k-empty-ic {
+    inline-size: 56px; block-size: 56px; border-radius: 999px; margin-inline: auto;
+    display: flex; align-items: center; justify-content: center;
+    background: color-mix(in srgb, var(--text-primary) 5%, transparent); color: var(--text-tertiary);
+    margin-block-end: 16px;
+}
+.k-empty-txt { font-size: 15px; color: var(--text-secondary); margin-block-end: 16px; }
+
+/* Summary rail */
+.k-summary {
+    background: var(--bg-surface); border-inline-start: 1px solid var(--border-subtle);
+    display: flex; flex-direction: column; min-block-size: 0;
+}
+/* Totals + details scroll; the pay actions below stay pinned to the bottom
+   edge, so "Pay now" is reachable however tall the details block gets. */
+.k-summary-scroll { flex: 1 1 auto; min-block-size: 0; overflow-y: auto; }
+@media (max-width: 900px) { .k-summary { border-inline-start: none; border-block-start: 1px solid var(--border-subtle); } }
+/* Title strip so the rail doesn't open on a bare number. */
+.k-summary-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 20px 24px 0;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+.k-summary-count {
+    min-inline-size: 26px; block-size: 26px; padding-inline: 8px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 13px; font-weight: 700; letter-spacing: 0;
+}
+.k-summary-rows { padding: 18px 24px 0; display: flex; flex-direction: column; gap: 10px; }
+.k-summary-row { display: flex; justify-content: space-between; font-size: 14.5px; color: var(--text-secondary); }
+.k-summary-row span:last-child { color: var(--text-primary); font-weight: 500; }
+.k-summary-divider { height: 1px; background: var(--border-subtle); margin: 16px 24px; }
+.k-summary-total {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    margin-inline: 16px; padding: 16px;
+    border-radius: 16px; background: var(--bg-page);
+}
+.k-summary-total > span:first-child { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); font-weight: 700; }
+.k-total-amt { font-size: 34px; font-weight: 800; letter-spacing: -0.02em; }
+.k-summary-actions { margin-block-start: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; border-block-start: 1px solid var(--border-subtle); }
+/* `both` mode — a short prompt above the two pay-path choices. */
+.k-pay-choice { text-align: center; font-size: 13.5px; font-weight: 600; color: var(--text-tertiary); padding-block-end: 2px; }
+
+/* ── Cart pay actions ────────────────────────────────────────
+   A three-slot button: icon · label · amount. The amount on the button
+   is what turns "Pay now" from a form submit into a decision the shopper
+   can make without looking back up at the total. */
+.k-pay-btn {
+    inline-size: 100%; block-size: 68px; border-radius: 16px;
+    display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 12px;
+    padding-inline: 18px; cursor: pointer;
+    font-size: 17px; font-weight: 650; letter-spacing: -0.01em;
+    transition: transform .1s ease, filter .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.k-pay-btn:active { transform: translateY(1px); filter: brightness(0.96); }
+.k-pay-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
+.k-pay-btn-ic { display: flex; align-items: center; justify-content: center; }
+.k-pay-btn-label { text-align: start; }
+.k-pay-btn-amt { font-size: 17px; font-weight: 700; opacity: 0.92; }
+
+.k-pay-btn-primary {
+    color: var(--accent-fg);
+    background: linear-gradient(180deg,
+        color-mix(in srgb, var(--accent) 92%, #fff) 0%,
+        var(--accent) 58%,
+        color-mix(in srgb, var(--accent) 93%, #000) 100%);
+    box-shadow:
+        0 1px 0 0 color-mix(in srgb, #fff 26%, transparent) inset,
+        0 14px 30px -14px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.k-pay-btn-primary:hover:not(:disabled) { transform: translateY(-1px); }
+
+/* The pay-at-counter path when both are offered. An outline, not a second
+   fill — two tinted blocks made neither read as the primary action. */
+.k-pay-btn-ghost {
+    background: var(--bg-surface); color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--border-default);
+}
+.k-pay-btn-ghost .k-pay-btn-ic { color: var(--text-tertiary); }
+.k-pay-btn-ghost:hover:not(:disabled) {
+    background: var(--bg-page);
+    box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+
+/* The "I've paid" confirm on the UPI screen — centred under the QR rather
+   than stretched across the full width of the payment body. */
+.k-upi-confirm {
+    inline-size: min(360px, 90vw);
+    grid-template-columns: 28px auto;
+    justify-content: center;
+    margin-block-start: 6px;
+}
+
+/* Generic secondary button (empty-state, modal) */
+.k-btn {
+    block-size: 48px; padding-inline: 20px; border-radius: 14px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 15px; font-weight: 600; color: var(--text-primary);
+    background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+    border: 1px solid var(--border-default);
+}
+.k-btn:active { background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
+.k-btn-primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+
+/* ── Exit modal ──────────────────────────────────────────── */
+.k-modal-scrim {
+    position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+    padding: 24px; background: rgba(0, 0, 0, 0.5);
+}
+.k-modal {
+    inline-size: 100%; max-inline-size: 400px; text-align: center; padding: 28px 24px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    border-radius: 20px; box-shadow: var(--shadow-pop);
+}
+.k-modal-ic {
+    inline-size: 48px; block-size: 48px; border-radius: 999px; margin-inline: auto;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--danger-soft); color: var(--danger); margin-block-end: 14px;
+}
+.k-modal-title { font-size: 16px; font-weight: 600; }
+.k-modal-body { font-size: 13.5px; color: var(--text-tertiary); margin-block-start: 6px; }
+.k-modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-block-start: 20px; }
+
+/* ══════════════ PAYMENT (checkout) ══════════════ */
+.k-pay-body {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; text-align: center; padding: 24px;
+}
+.k-pay-amount { font-size: clamp(40px, 8vw, 72px); font-weight: 800; letter-spacing: -0.02em; }
+.k-pay-qr-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.k-pay-qr {
+    inline-size: 260px; block-size: 260px; border-radius: 20px; padding: 16px;
+    background: #fff; box-shadow: var(--shadow-card);
+    display: flex; align-items: center; justify-content: center;
+}
+.k-pay-qr img { inline-size: 100%; block-size: 100%; }
+.k-pay-scan { font-size: 20px; font-weight: 600; margin-block-start: 6px; }
+.k-pay-hint { font-size: 14.5px; color: var(--text-secondary); max-inline-size: 360px; }
+.k-pay-waiting {
+    display: inline-flex; align-items: center; gap: 10px; margin-block-start: 8px;
+    font-size: 14px; font-weight: 600; color: var(--text-tertiary);
+}
+.k-spinner {
+    inline-size: 16px; block-size: 16px; border-radius: 999px;
+    border: 2px solid var(--border-strong); border-top-color: var(--accent);
+    animation: k-spin 0.8s linear infinite; display: inline-block;
+}
+@keyframes k-spin { to { transform: rotate(360deg); } }
+
+/* ══════════════ THANK YOU ══════════════ */
+.k-thankyou { align-items: center; justify-content: center; cursor: pointer; }
+.k-ty-block { display: contents; }
+.k-ty-receipt-qr {
+    inline-size: 220px; block-size: 220px; border-radius: 18px; padding: 14px; margin-block: 6px;
+    background: #fff; box-shadow: var(--shadow-card);
+    display: flex; align-items: center; justify-content: center;
+}
+.k-ty-receipt-qr img { inline-size: 100%; block-size: 100%; }
+.k-ty-inner {
+    flex: 1 1 auto; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center; gap: 12px; padding-inline: 32px;
+}
+.k-ty-tick {
+    inline-size: 88px; block-size: 88px; border-radius: 999px; margin-block-end: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--positive-soft); color: var(--positive);
+}
+.k-ty-title { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.k-ty-pickup-label { font-size: 14px; color: var(--text-tertiary); margin-block-start: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+.k-ty-code {
+    font-size: clamp(56px, 12vw, 120px); font-weight: 800; line-height: 1;
+    letter-spacing: -0.03em; color: var(--accent); font-variant-numeric: tabular-nums;
+}
+/* Paired with a receipt QR the code has to share the screen, so it steps down
+   a size — still the biggest thing above the fold, just not the only thing. */
+.k-ty-code-sm { font-size: clamp(40px, 7vw, 72px); }
+.k-ty-pickup { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.k-ty-sub { font-size: 16px; color: var(--text-secondary); max-inline-size: 420px; }
+
+/* ── Toast ───────────────────────────────────────────────── */
+.k-toast {
+    position: fixed; inset-block-start: 20px; inset-inline: 0; margin-inline: auto;
+    inline-size: max-content; max-inline-size: 90vw; z-index: 60;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 20px; border-radius: 14px; font-size: 14.5px; font-weight: 600;
+    background: var(--text-primary); color: var(--bg-surface);
+    box-shadow: var(--shadow-pop);
+}
+/* Failures read as failures — a tick on "payment didn't go through" is worse
+   than no icon at all. */
+.k-toast--error { background: var(--danger); color: #fff; }

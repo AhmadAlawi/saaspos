@@ -1,0 +1,8 @@
+/* ============================================================
+   Landing CSS entry — shared design system + the public
+   marketing landing page shown at "/" when demo mode is on.
+   ============================================================ */
+
+@import './app.css';
+
+@import './landing/page.css';

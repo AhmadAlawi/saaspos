@@ -1,0 +1,354 @@
+/* ============================================================
+   Accounting — fiscal years & periods.
+   Each year is a card with a header band (name + range + status +
+   close-year action) above its table of monthly periods. Themed
+   from design tokens so light/dark + RTL come for free.
+   ============================================================ */
+
+.fy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.fy-head-main {
+  min-width: 0;
+}
+
+.fy-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fy-range {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.fy-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fy-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: end;
+}
+
+.fy-hint--ok {
+  color: var(--positive);
+}
+
+/* ── Journal source badges ───────────────────────────────────
+   Colour-coded per source (reuses the .prod-badge pill + dot). One hue
+   per source family so the day book reads apart at a glance; the same
+   hex works in light + dark like .prod-badge-positive does. */
+.src-sale             { background: color-mix(in srgb, #10B981 13%, transparent); color: #10B981; }
+.src-customer_payment { background: color-mix(in srgb, #14B8A6 13%, transparent); color: #0D9488; }
+.dark .src-customer_payment { color: #14B8A6; }
+.src-sale_return      { background: color-mix(in srgb, #F43F5E 13%, transparent); color: #E11D48; }
+.dark .src-sale_return { color: #FB7185; }
+.src-sale_void        { background: var(--bg-elevated); color: var(--text-tertiary); }
+.src-purchase         { background: color-mix(in srgb, #6366F1 14%, transparent); color: #4F46E5; }
+.dark .src-purchase   { color: #818CF8; }
+.src-purchase_return  { background: color-mix(in srgb, #0EA5E9 14%, transparent); color: #0284C7; }
+.dark .src-purchase_return { color: #38BDF8; }
+.src-expense          { background: color-mix(in srgb, #F97316 14%, transparent); color: #EA580C; }
+.dark .src-expense    { color: #FB923C; }
+.src-supplier_payment { background: color-mix(in srgb, #F59E0B 14%, transparent); color: #D97706; }
+.dark .src-supplier_payment { color: #FBBF24; }
+.src-stock_adjustment { background: color-mix(in srgb, #8B5CF6 14%, transparent); color: #7C3AED; }
+.dark .src-stock_adjustment { color: #A78BFA; }
+.src-shift_variance   { background: color-mix(in srgb, #EC4899 13%, transparent); color: #DB2777; }
+.dark .src-shift_variance { color: #F472B6; }
+.src-opening_balance  { background: color-mix(in srgb, #06B6D4 14%, transparent); color: #0891B2; }
+.dark .src-opening_balance { color: #22D3EE; }
+.src-closing_entry    { background: color-mix(in srgb, #3B82F6 14%, transparent); color: #2563EB; }
+.dark .src-closing_entry { color: #60A5FA; }
+.src-manual           { background: color-mix(in srgb, #64748B 15%, transparent); color: #475569; }
+.dark .src-manual     { color: #94A3B8; }
+
+/* ── Chart of accounts tree ──────────────────────────────── */
+
+.coa-tree {
+  padding: 6px 0;
+}
+
+.coa-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 4px;
+  padding-inline-start: calc(16px + var(--coa-lvl, 0) * 16px);
+  cursor: pointer;
+}
+
+.coa-group:hover {
+  background: var(--bg-hover);
+}
+
+.coa-group-edit {
+  margin-inline-start: auto;
+  display: inline-flex;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.coa-group:hover .coa-group-edit {
+  opacity: 1;
+}
+
+.coa-group-name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.coa-group-type {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.coa-acct {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) 120px 76px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  padding-inline-start: calc(28px + var(--coa-lvl, 0) * 16px);
+  cursor: pointer;
+  border-inline-start: 2px solid transparent;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.coa-acct:hover {
+  background: var(--bg-hover);
+}
+
+.coa-acct.is-selected {
+  background: var(--accent-soft);
+  border-inline-start-color: var(--accent);
+}
+
+.coa-acct.is-inactive .coa-acct-code,
+.coa-acct.is-inactive .coa-acct-name {
+  opacity: 0.5;
+}
+
+.coa-acct-code {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.coa-acct-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.coa-acct-bal {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  text-align: end;
+}
+
+.coa-acct-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.coa-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.coa-tag-mapped {
+  color: var(--accent);
+  border-color: var(--accent-ring);
+  background: var(--accent-soft);
+}
+
+.coa-system-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.pos-input.is-readonly {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ── Business mappings ───────────────────────────────────── */
+
+.map-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.map-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.map-row:last-child {
+  border-bottom: 0;
+}
+
+.map-row-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.map-row-help {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.map-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-default);
+}
+
+@media (max-width: 640px) {
+  .map-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}
+
+/* ── Opening balances ────────────────────────────────────── */
+
+.ob-head {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.ob-date {
+  max-width: 220px;
+}
+
+.ob-section {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 14px 18px 4px;
+}
+
+.ob-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) 28px 160px;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 18px;
+}
+
+.ob-code {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.ob-name {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.ob-sidetag {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.ob-amount .pos-input {
+  text-align: end;
+}
+
+.ob-summary {
+  border-top: 1px solid var(--border-default);
+  padding: 14px 18px;
+  margin-top: 8px;
+}
+
+.ob-summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 3px 0;
+}
+
+.ob-summary-row.ob-plug {
+  font-weight: 700;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-default);
+  margin-top: 6px;
+  padding-top: 9px;
+}
+
+.ob-balanced {
+  color: var(--positive);
+}
+
+.ob-plug-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+.ob-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-default);
+}
+
+@media (max-width: 640px) {
+  .ob-row {
+    grid-template-columns: 48px minmax(0, 1fr) 24px 110px;
+    gap: 8px;
+  }
+}

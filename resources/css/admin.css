@@ -1,0 +1,44 @@
+/* ============================================================
+   POS — admin CSS entry
+   Loads the shared design system (app.css) plus the admin shell
+   chrome (layout, sidebar, topbar, profile, command palette,
+   notifications). Used by every page rendered inside <x-admin-layout>.
+   ============================================================ */
+
+@import './app.css';
+
+@import './admin/layout.css';
+@import './admin/sidebar.css';
+@import './admin/topbar.css';
+@import './admin/profile.css';
+@import './admin/store-switcher.css';
+@import './admin/command-palette.css';
+@import './admin/notifications.css';
+
+/* ── Per-page styles ─────────────────────────────────────── */
+@import './admin/categories.css';
+@import './admin/brands.css';
+@import './admin/units.css';
+@import './admin/products.css';
+@import './admin/drug-schedules.css';
+@import './admin/settings.css';
+@import './admin/stores.css';
+@import './admin/terminals.css';
+@import './admin/kiosk-orders.css';
+@import './admin/labels.css';
+@import './admin/hardware.css';
+@import './admin/roles.css';
+@import './admin/users.css';
+@import './admin/languages.css';
+@import './admin/inventory.css';
+@import './admin/batches.css';
+@import './admin/customers.css';
+@import './admin/purchases.css';
+@import './admin/tax.css';
+@import './admin/cashier.css';
+@import './admin/shifts.css';
+@import './admin/dashboard.css';
+@import './admin/system-health.css';
+@import './admin/calculator.css';
+@import './admin/day-summary.css';
+@import './admin/accounting.css';

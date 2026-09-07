@@ -1,0 +1,641 @@
+/* ============================================================
+   Inventory module — stock levels, movements, adjustment reasons.
+   Server-side filters sit *inside* the table card so the chrome
+   stays consistent with the rest of the admin: card-pad-0 wrapper,
+   bordered toolbar above, table below.
+   ============================================================ */
+
+/* ── Filter toolbar ───────────────────────────────────────────
+   Multi-field server filter (store / type / date / search).
+   Same spirit as `.dt-toolbar`, but tall enough to fit labelled
+   fields without truncating. Lives in the same card-pad-0 card
+   as the table that follows.
+   ============================================================ */
+.inv-filter {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.inv-filter .field {
+  margin: 0;
+  min-width: 0;
+}
+.inv-filter-select  { flex: 0 0 180px; }
+.inv-filter-date    { flex: 0 0 160px; }
+.inv-filter-search  { flex: 1 1 240px; min-width: 220px; }
+/* Primary picker (e.g. the General Ledger account) — wide + grows to fill
+   the toolbar so the row spans full width and long labels aren't clipped. */
+.inv-filter-account { flex: 1 1 320px; min-width: 260px; }
+
+/* Border treatments — opt-in stronger rule / full box around the
+   filter toolbar (the base only draws a subtle bottom rule). */
+.inv-filter--ruled { border-bottom: 1px solid var(--border-default); }
+.inv-filter--boxed { border: 1px solid var(--border-default); border-radius: 8px; }
+
+/* Reset-filters action — outlined button styled like the other
+   toolbar inputs (44px, border-default, neutral until hover). Aligns
+   in the same flex row as the selects/search box. Hover turns the
+   border + label a soft danger tint so the action reads as "clear".
+   See <x-admin.filter-reset>. */
+.inv-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding-inline: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.dark .inv-filter-reset { background: var(--bg-elevated); }
+.inv-filter-reset:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 6%, var(--bg-surface));
+}
+.dark .inv-filter-reset:hover {
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-elevated));
+}
+
+@media (max-width: 640px) {
+  .inv-filter { padding: 12px; }
+  /* Every filter field — including ones sized with utility classes
+     (e.g. Products' `basis-[200px]` category select) — spans the full
+     row so the bar reads as a clean vertical stack on phones. */
+  .inv-filter > .field,
+  .inv-filter-select,
+  .inv-filter-date,
+  .inv-filter-search { flex: 1 1 100% !important; min-width: 0; }
+  .inv-filter-reset { width: 100%; justify-content: center; }
+}
+
+/* ── Search input with leading magnifier icon ─────────────────
+   Mirrors the `.dt-search` pattern on the client-side toolbar so
+   the server-form variant reads the same. Pure visual decoration
+   — the input still submits via Enter on the parent form. */
+.inv-search { position: relative; display: block; }
+.inv-search-icon {
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.inv-search input.pos-input { padding-inline-start: 36px; }
+
+/* ── Adjustment Reasons: master-detail editor ─────────────────
+   Right-column editor card. Mirrors `.cat-editor` shape — sticky
+   on desktop, empty state on idle, head/body/footer when active. */
+.rsn-editor { position: sticky; top: 12px; padding: 0; }
+.rsn-editor-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+  padding: 56px 24px;
+  gap: 8px;
+}
+.rsn-editor-empty-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+.rsn-editor-empty-title { font-weight: 600; color: var(--text-primary); font-size: 14px; }
+.rsn-editor-empty-sub   { font-size: 12.5px; color: var(--text-tertiary); max-width: 240px; }
+
+.rsn-editor-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.rsn-editor-name { font-weight: 600; color: var(--text-primary); font-size: 14px; }
+.rsn-editor-id   { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+
+.rsn-editor-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ── Stock Adjustments: line-item picker + totals ─────────────
+   The picker sits at the top of the line-items card (between the
+   header and the table). It's a wrapped input with a leading
+   magnifier icon and an absolute-positioned dropdown below. */
+/* Barcode scan row — sits above the product picker. The icon + hint are
+   absolutely positioned INSIDE `.inv-scan-field` (which is exactly the input's
+   box), so they stay vertically centred on the input regardless of the row's
+   own padding. */
+.inv-scan {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.inv-scan-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.inv-scan-icon {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 12px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.inv-scan-input {
+  width: 100%;
+  padding-inline-start: 36px;
+  padding-inline-end: 46px;
+}
+.inv-scan-spin {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 12px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--text-tertiary);
+}
+.inv-scan-kbd {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 10px;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border: 1px solid var(--border-default);
+  border-radius: 5px;
+  background: var(--bg-subtle);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.5;
+  pointer-events: none;
+}
+/* Camera scan — a proper square icon button, matching the cashier's. */
+.inv-scan-cam {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.inv-scan-cam:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.inv-scan-cam:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+  border-color: var(--accent);
+}
+
+/* Scan-mode toggle (stock take: "Enter count" vs "Add 1 each") — sits under
+   the scan field, before the item list. */
+.inv-scan-modes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 12px;
+}
+.inv-scan-modes-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+
+/* Keep the 8-column line table from crushing its inputs — below this width
+   `.dt-scroll` takes over and scrolls horizontally. The per-column widths below
+   size each input so its value stays readable instead of collapsing to a sliver
+   when the table is squeezed. */
+.adj-line-table { min-width: 1040px; }
+
+.adj-line-qty    { width: 96px; }
+.adj-line-qty input { width: 100%; min-width: 80px; }
+
+.adj-line-cost   { width: 128px; }
+.adj-line-cost .pos-money { width: 100%; min-width: 108px; }
+
+.adj-line-batch  { width: 168px; }
+
+.adj-line-notes  { width: 200px; }
+.adj-line-notes input { width: 100%; min-width: 160px; }
+
+/* A row briefly highlights when a scan adds or bumps it. Generic across the
+   inventory editors — the flash class lands on a <tbody> (adjustment), a <tr>
+   (transfer / take), or a plain element; cover every cell beneath it. */
+.inv-scan-flash,
+.inv-scan-flash td {
+  animation: inv-scan-flash 0.6s ease;
+}
+@keyframes inv-scan-flash {
+  0%   { background: var(--accent-soft); }
+  100% { background: transparent; }
+}
+
+/* Camera scanner overlay. */
+.inv-cam-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--bg-inverse, #000) 55%, transparent);
+}
+.inv-cam-modal {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.inv-cam-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.inv-cam-close {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+}
+.inv-cam-close:hover { background: var(--bg-hover); }
+.inv-cam-video {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  object-fit: cover;
+  display: block;
+}
+.inv-cam-hint {
+  padding: 10px 14px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.adj-picker {
+  position: relative;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.adj-picker > .inv-search-icon {
+  top: 50%;
+  inset-inline-start: 24px;
+}
+.adj-picker-input { padding-inline-start: 36px; }
+
+.adj-picker-dropdown {
+  position: absolute;
+  inset-inline: 14px;
+  top: calc(100% - 2px);
+  z-index: 30;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.adj-picker-empty {
+  padding: 14px 12px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+.adj-picker-row {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+  border: none;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.adj-picker-row:hover,
+.adj-picker-row:focus-visible {
+  background: var(--bg-hover);
+  outline: none;
+}
+.adj-picker-row-label { font-weight: 500; }
+.adj-picker-row-sku   { font-size: 12px; color: var(--text-tertiary); margin-inline-start: 12px; }
+
+/* ── Stock Adjustments: In / Out direction toggle ───────────────
+   Two pill buttons per line — visually obvious whether stock is
+   coming in (green tint) or going out (red tint). Replaces the
+   need for the user to type a minus sign in the quantity input
+   (system convention blocks negatives in number inputs). */
+.adj-dir {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  padding: 2px;
+  background: var(--bg-elevated);
+}
+.adj-dir-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease;
+}
+.adj-dir-btn:hover { color: var(--text-primary); }
+.adj-dir-in.is-active {
+  background: color-mix(in srgb, var(--positive) 14%, transparent);
+  color: var(--positive);
+}
+.adj-dir-out.is-active {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+.adj-dir-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+}
+
+/* Sticky totals panel (right column). */
+.adj-totals { display: flex; flex-direction: column; gap: 10px; }
+.adj-totals > div { display: flex; justify-content: space-between; align-items: baseline; }
+.adj-totals-label { font-size: 12.5px; color: var(--text-secondary); }
+.adj-totals-value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.adj-totals-net   {
+  border-top: 1px dashed var(--border-default);
+  padding-top: 10px;
+  margin-top: 2px;
+}
+.adj-totals-net .adj-totals-value { font-size: 18px; font-weight: 700; }
+
+/* ── Stock levels: inline reorder editor ──────────────────────
+   The reorder column is the one cell the user can edit without
+   leaving the row. A compact input that matches the row's line
+   height so the table doesn't grow when it appears.
+   ============================================================ */
+.inv-reorder-input {
+  width: 96px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Stock movements: delta colour ────────────────────────────
+   The delta is a signed signal — positive (incoming) reads
+   green, negative (outgoing) reads red, zero stays neutral.
+
+   The `td.<class>` variant wins specificity over the system-wide
+   `.dt-table tbody td { color: var(--text-primary) }` rule, which
+   would otherwise repaint the cell back to primary text colour.
+   ============================================================ */
+.dt-table tbody td.inv-delta-pos,
+.inv-delta-pos { color: var(--positive); }
+.dt-table tbody td.inv-delta-neg,
+.inv-delta-neg { color: var(--danger); }
+
+/* Small "oversold" tag under the Available cell in the adjustment editor. */
+.inv-oversold-note {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--danger);
+  white-space: nowrap;
+}
+
+/* ── Footer-style pager row under the table ───────────────────
+   Laravel's `->links()` renders inside this wrapper so the page
+   numbers sit flush with the table card and respect the same
+   inset padding as the rest of the page.
+   ============================================================ */
+.inv-pager { padding: 10px 14px; border-top: 1px solid var(--border-subtle); }
+
+/* ── Transfer / adjustment detail: meta key-value grid ───────────
+   Two-column responsive grid used on the show pages for header
+   fields like from/to store, date, notes etc. */
+.inv-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.inv-meta-grid dt {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  margin-bottom: 3px;
+}
+.inv-meta-grid dd {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  margin: 0;
+}
+.inv-meta-full {
+  grid-column: 1 / -1;
+}
+
+/* ── Adjustment: inline batch picker ─────────────────────────
+   Shown on rows where the product has track_batches=true.
+   A compact trigger button opens a small dropdown listing the
+   available batches (FEFO order) for the selected store.
+   ============================================================ */
+.adj-batch-cell {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 120px;
+}
+.adj-batch-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.adj-batch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 100ms ease, color 100ms ease;
+}
+.adj-batch-btn:hover { border-color: var(--accent); color: var(--accent); }
+.adj-batch-btn.is-set { color: var(--text-primary); border-color: var(--accent); }
+.adj-batch-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+}
+.adj-batch-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  transition: color 100ms ease, background 100ms ease;
+}
+.adj-batch-clear:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }
+.adj-batch-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline-start: 0;
+  z-index: 50;
+  min-width: 220px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / .12);
+  overflow: hidden;
+}
+.adj-batch-empty {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+.adj-batch-row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: start;
+  transition: background 80ms ease;
+}
+.adj-batch-row:hover { background: var(--bg-hover); }
+.adj-batch-row + .adj-batch-row { border-top: 1px solid var(--border-subtle); }
+.adj-batch-row-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.adj-batch-row-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* "Create new batch" entry at the top of the picker dropdown. */
+.adj-batch-new {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.adj-batch-new + .adj-batch-row { border-top: none; }
+.adj-batch-new-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* New-batch capture sub-row beneath an inflow line. */
+.adj-line-batch-row > td {
+  padding-block: 0 12px;
+  padding-inline: 16px;
+  border-top: none;
+}
+.adj-newbatch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-subtle, var(--bg-hover));
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+.adj-newbatch-tag {
+  align-self: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-tertiary);
+}
+.adj-newbatch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 150px;
+}
+.adj-newbatch-field .field-label {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.adj-newbatch-cancel {
+  margin-inline-start: auto;
+  align-self: center;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 80ms ease, background 80ms ease;
+}
+.adj-newbatch-cancel:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); }

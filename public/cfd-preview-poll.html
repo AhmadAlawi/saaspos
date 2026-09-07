@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en"
+      dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="pos-theme-default" content="light">
+    <title>Customer display — Main Store</title>
+
+    
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('pos_cfd_theme')
+                    || localStorage.getItem('pos_theme')
+                    || document.querySelector('meta[name="pos-theme-default"]').content
+                    || 'light';
+                var dark = t === 'dark'
+                    || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', dark);
+            } catch (e) {}
+        })();
+    </script>
+
+    
+    <link rel="preload" as="style" href="/build/assets/customer-display-Bq7FHM4L.css" /><link rel="modulepreload" as="script" href="/build/assets/customer-display-BKg61Vo3.js" /><link rel="modulepreload" as="script" href="/build/assets/module.esm-BwdFUNDF.js" /><link rel="modulepreload" as="script" href="/build/assets/cfd-broadcast-CVS1cI33.js" /><link rel="stylesheet" href="/build/assets/customer-display-Bq7FHM4L.css" /><script type="module" src="/build/assets/customer-display-BKg61Vo3.js"></script>
+    </head>
+<body class="font-sans antialiased">
+    
+    <div class="cfd"
+         x-data="customerDisplay(JSON.parse('{\u0022channel\u0022:\u0022pos-cfd:default\u0022,\u0022currency\u0022:{\u0022symbol\u0022:\u0022₹\u0022,\u0022symbol_first\u0022:true},\u0022store\u0022:{\u0022name\u0022:\u0022Main Store\u0022},\u0022attract\u0022:{\u0022media\u0022:[],\u0022seconds\u0022:8},\u0022welcome\u0022:\u0022Welcome to Main Store\u0022,\u0022tagline\u0022:\u0022Thanks for stopping by — we\\u0027ll be right with you.\u0022,\u0022thankyou\u0022:\u0022Thank you!\u0022,\u0022labels\u0022:{\u0022your_order\u0022:\u0022Your order\u0022,\u0022item\u0022:\u0022item\u0022,\u0022items\u0022:\u0022items\u0022,\u0022col_item\u0022:\u0022Item\u0022,\u0022col_qty\u0022:\u0022Qty\u0022,\u0022col_amount\u0022:\u0022Amount\u0022,\u0022subtotal\u0022:\u0022Subtotal\u0022,\u0022discount\u0022:\u0022Discount\u0022,\u0022tax\u0022:\u0022Tax\u0022,\u0022total\u0022:\u0022Total\u0022,\u0022added\u0022:\u0022Added to order\u0022,\u0022scanning\u0022:\u0022Please continue — the cashier is scanning your items\u0022,\u0022loyalty\u0022:\u0022Loyalty member\u0022,\u0022points\u0022:\u0022points\u0022,\u0022each\u0022:\u0022each\u0022,\u0022amount_due\u0022:\u0022Amount due\u0022,\u0022tendered\u0022:\u0022Tendered\u0022,\u0022change_due\u0022:\u0022Change due\u0022,\u0022scan_to_pay\u0022:\u0022Scan to pay\u0022,\u0022scan_hint\u0022:\u0022Point your camera at the code, then choose your payment app\u0022,\u0022change\u0022:\u0022Change\u0022,\u0022receipt_scan\u0022:\u0022Scan for your receipt\u0022,\u0022receipt_hint\u0022:\u0022A digital copy, no paper needed\u0022},\u0022transport\u0022:\u0022separate_device\u0022,\u0022poll_url\u0022:\u0022\\\/cfd-state.json\u0022}'))"
+         x-cloak>
+
+        
+        <div class="cfd-top" x-show="state !== 'thankyou'">
+            <div class="cfd-brand">
+                                    <span class="cfd-logo">M</span>
+                                <div>
+                    <div class="cfd-store">Main Store</div>
+                    <div class="cfd-status"><span class="cfd-dot"></span>Open now</div>
+                </div>
+            </div>
+            <div class="cfd-topbar-end">
+                
+                <button type="button" class="cfd-theme-btn" @click="toggleTheme()"
+                        aria-label="Switch light / dark"
+                        title="Switch light / dark">
+                    <span class="dark:hidden"><svg class="w-5 h-5"
+         viewBox="0 0 24 24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="1.6"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+</span>
+                    <span class="hidden dark:inline-flex"><svg class="w-5 h-5"
+         viewBox="0 0 24 24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="1.6"
+         stroke-linecap="round"
+         stroke-linejoin="round"
+         aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34 1.41-1.41"/></svg>
+</span>
+                </button>
+                <div class="cfd-clock"><span x-text="clock"></span></div>
+            </div>
+        </div>
+
+        <div class="cfd-stage">
+            
+            <template x-if="state === 'idle'">
+                <div class="cfd-idle">
+                    
+                    <div>
+                        <div class="cfd-welcome"><span class="cfd-wave">👋</span><span x-text="welcome"></span></div>
+                        <div class="cfd-tagline" x-text="tagline"></div>
+                    </div>
+
+                    
+                    <template x-if="hasAttract">
+                        <div class="cfd-promo">
+                            <span class="cfd-promo-tab">Today&#039;s offers</span>
+                            <template x-for="(url, i) in attract.media" :key="i">
+                                <img class="cfd-promo-slide" :src="url" alt=""
+                                     :style="`opacity:${i === promoIx ? 1 : 0}`">
+                            </template>
+                            <div class="cfd-promo-dots" x-show="attract.media.length > 1">
+                                <template x-for="(url, i) in attract.media" :key="'d' + i">
+                                    <i :class="i === promoIx && 'on'"></i>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    
+                    <div class="cfd-strip">
+                        <div class="cfd-chip">
+                            <span class="cfd-chip-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></span>
+                            <span class="cfd-chip-tx"><b>Fast checkout</b><span>Quick, friendly service</span></span>
+                        </div>
+                        <div class="cfd-chip">
+                            <span class="cfd-chip-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>
+                            <span class="cfd-chip-tx"><b>Digital receipts</b><span>On paper or your phone</span></span>
+                        </div>
+                        <div class="cfd-chip">
+                            <span class="cfd-chip-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></span>
+                            <span class="cfd-chip-tx"><b>Here to help</b><span>Just ask our team</span></span>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            
+            <template x-if="state === 'sale'">
+                <div class="cfd-sale">
+                    
+                    <div class="cfd-main">
+                        <template x-if="snap.last_line">
+                            <div class="cfd-added">
+                                <span class="cfd-added-tag"><span class="cfd-dot"></span><span x-text="labels.added"></span></span>
+                                <span class="cfd-added-name" x-text="snap.last_line.name"></span>
+                                <span class="cfd-added-price" x-text="snap.last_line.line_total"></span>
+                            </div>
+                        </template>
+
+                        <div class="cfd-order">
+                            <div class="cfd-order-top">
+                                <span class="cfd-order-title" x-text="labels.your_order"></span>
+                                <span class="cfd-order-count" x-text="itemCountLabel"></span>
+                            </div>
+                            <div class="cfd-order-head">
+                                <span x-text="labels.col_item"></span>
+                                <span class="c" x-text="labels.col_qty"></span>
+                                <span class="e" x-text="labels.col_amount"></span>
+                            </div>
+                            <div class="cfd-list">
+                                <template x-for="(l, i) in linesNewestFirst" :key="l.key">
+                                    <div class="cfd-row" :class="i === 0 && 'is-new'">
+                                        <div class="cfd-row-item">
+                                            <div class="t" x-text="l.name"></div>
+                                            <div class="m" x-text="l.unit_price + ' ' + labels.each"></div>
+                                        </div>
+                                        <div class="cfd-row-qty" x-text="l.quantity"></div>
+                                        <div class="cfd-row-amt" x-text="l.line_total"></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="cfd-totals">
+                        <div class="cfd-sum">
+                            <template x-if="snap.customer">
+                                <div class="cfd-cust">
+                                    <div class="av" x-text="snap.customer.initials"></div>
+                                    <div>
+                                        <div class="nm" x-text="snap.customer.name"></div>
+                                        <div class="lp" x-text="labels.loyalty"></div>
+                                    </div>
+                                    <template x-if="snap.customer.points !== null && snap.customer.points !== undefined">
+                                        <div class="pts">
+                                            <div class="v" x-text="snap.customer.points"></div>
+                                            <div class="u" x-text="labels.points"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <div class="cfd-subrows">
+                                <div class="cfd-subrow">
+                                    <span class="l" x-text="labels.subtotal"></span>
+                                    <span class="v" x-text="snap.totals.subtotal"></span>
+                                </div>
+                                <template x-if="snap.totals.has_discount">
+                                    <div class="cfd-subrow discount">
+                                        <span class="l" x-text="labels.discount"></span>
+                                        <span class="v" x-text="'−' + snap.totals.discount"></span>
+                                    </div>
+                                </template>
+                                <template x-if="snap.totals.has_tax">
+                                    <div class="cfd-subrow">
+                                        <span class="l" x-text="labels.tax"></span>
+                                        <span class="v" x-text="snap.totals.tax"></span>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div class="cfd-divider"></div>
+
+                            <div class="cfd-grand">
+                                <div class="lbl" x-text="labels.total"></div>
+                                <div class="amt" x-text="snap.totals.grand"></div>
+                                <div class="hint">
+                                    <span class="cfd-dot cfd-dot-accent"></span>
+                                    <span x-text="labels.scanning"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            
+            <template x-if="state === 'payment'">
+                <div class="cfd-pay" :class="!payQr && 'cfd-pay--noqr'">
+                    <div class="cfd-pay-amount">
+                        <div class="cfd-pay-eyebrow" x-text="labels.amount_due"></div>
+                        <div class="cfd-pay-big" x-text="snap.payment.amount_due"></div>
+                        <template x-if="snap.payment.has_tendered || snap.payment.has_change">
+                            <div class="cfd-pay-cash">
+                                <div class="box">
+                                    <div class="k" x-text="labels.tendered"></div>
+                                    <div class="v" x-text="snap.payment.tendered"></div>
+                                </div>
+                                <div class="box change">
+                                    <div class="k" x-text="labels.change_due"></div>
+                                    <div class="v" x-text="snap.payment.change_due"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    
+                    <template x-if="payQr">
+                        <div class="cfd-pay-qr">
+                            <div class="cfd-qr-card"><img :src="payQr" alt=""></div>
+                            <div class="say">
+                                <div class="h" x-text="labels.scan_to_pay"></div>
+                                <div class="s" x-text="labels.scan_hint"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            
+            <template x-if="state === 'thankyou'">
+                <div class="cfd-thanks">
+                    <div class="tick">
+                        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                             stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                    </div>
+                    <div class="cfd-thanks-title" x-text="thankyou"></div>
+                    <template x-if="snap.thankyou && snap.thankyou.has_change">
+                        <div class="cfd-thanks-change">
+                            <span class="k" x-text="labels.change"></span>
+                            <span class="v" x-text="snap.thankyou.change_due"></span>
+                        </div>
+                    </template>
+
+                    
+                    <template x-if="receiptQr">
+                        <div class="cfd-thanks-receipt">
+                            <div class="cfd-qr-mini"><img :src="receiptQr" alt=""></div>
+                            <div class="txt">
+                                <div class="h" x-text="labels.receipt_scan"></div>
+                                <div class="s" x-text="labels.receipt_hint"></div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+</body>
+</html>

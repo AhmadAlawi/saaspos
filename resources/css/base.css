@@ -1,0 +1,129 @@
+/* ============================================================
+   Base styles — html, body, [x-cloak], cursors, custom scrollbar
+   ============================================================ */
+
+html, body {
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "ss02", "cv11";
+}
+[x-cloak] { display: none !important; }
+
+/* ---- Pointer cursor restoration --------------------------------- */
+/* Tailwind 4 changed the default <button> cursor to "default".
+   Restore the web-standard pointer for anything clickable. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+summary,
+label[for],
+select,
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"]::-webkit-file-upload-button,
+.seg button,
+.pos-btn,
+.pos-btn-primary,
+.pos-btn-ghost,
+.pos-btn-danger { cursor: pointer; }
+
+input:not([type]),
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="password"],
+input[type="date"],
+input[type="time"],
+textarea { cursor: text; }
+
+/* Hide native clear/cancel button on search inputs — we render our own */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration { -webkit-appearance: none; appearance: none; display: none; }
+input[type="search"] { -webkit-appearance: none; appearance: none; }
+
+button:disabled,
+[aria-disabled="true"],
+.is-disabled { cursor: not-allowed; }
+
+input:disabled, textarea:disabled, select:disabled { cursor: not-allowed; }
+
+/* ---- Custom scrollbar (opt-in via .scroll-y) -------------------- */
+.scroll-y { overflow-y: auto; }
+.scroll-y::-webkit-scrollbar { width: 10px; }
+.scroll-y::-webkit-scrollbar-track { background: transparent; }
+.scroll-y::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border: 3px solid var(--bg-page);
+  border-radius: 999px;
+}
+.scroll-y::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* ---- Surface / border / fg / colour helpers --------------------- */
+.surface         { background: var(--bg-surface); }
+.surface-page    { background: var(--bg-page); }
+.surface-el      { background: var(--bg-elevated); }
+.surface-hover:hover { background: var(--bg-hover); }
+.surface-active  { background: var(--bg-active); }
+
+.border-subtle   { border-color: var(--border-subtle); }
+.border-default  { border-color: var(--border-default); }
+.border-strong   { border-color: var(--border-strong); }
+
+/* Divider colors for `divide-y` / `divide-x`. Tailwind has no registered
+   `subtle`/`default`/`strong` color, so these classes did nothing and the
+   divider lines fell back to a default (currentColor) that looked bright in
+   dark mode. Tailwind v4 draws the divider on `> :not(:last-child)`, so we
+   colour the SAME elements — matching the old v3 `~` selector missed the
+   first divider and left it bright. */
+.divide-subtle  > :not(:last-child) { border-color: var(--border-subtle); }
+.divide-default > :not(:last-child) { border-color: var(--border-default); }
+.divide-strong  > :not(:last-child) { border-color: var(--border-strong); }
+
+.fg-primary      { color: var(--text-primary); }
+.fg-secondary    { color: var(--text-secondary); }
+.fg-tertiary     { color: var(--text-tertiary); }
+
+.accent          { color: var(--accent); }
+.accent-bg       { background: var(--accent); color: var(--accent-fg); }
+.accent-soft     { background: var(--accent-soft); color: var(--accent); }
+.ring-accent     { box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.positive        { color: var(--positive); }
+.positive-soft   { background: var(--positive-soft); color: var(--positive); }
+.warning         { color: var(--warning); }
+.warning-soft    { background: var(--warning-soft); color: var(--warning); }
+.danger          { color: var(--danger); }
+.danger-soft     { background: var(--danger-soft); color: var(--danger); }
+
+.shadow-card     { box-shadow: var(--shadow-card); }
+.shadow-pop      { box-shadow: var(--shadow-pop); }
+
+/* Inline textual link. Referenced by Blade in a few places (legal pages,
+   settings hints) but never actually defined, so those anchors rendered as
+   plain body text with no affordance. */
+.link {
+  color: var(--accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  transition: text-decoration-color .12s ease;
+}
+.link:hover { text-decoration-color: var(--accent); }
+.link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}

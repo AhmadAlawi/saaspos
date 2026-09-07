@@ -1,0 +1,88 @@
+/* ============================================================
+   Profile button + dropdown menu (anchored to topbar-right)
+   ============================================================ */
+
+.profile-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  height: 36px;
+  padding: 0 10px 0 4px;
+  border-radius: 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.profile-btn:hover,
+.profile-btn.is-open {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+}
+.profile-btn .profile-meta { text-align: left; line-height: 1.2; }
+.profile-btn .profile-name { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
+.profile-btn .profile-role { font-size: 10.5px; color: var(--text-tertiary); margin-top: 1px; }
+@media (max-width: 960px) {
+  .profile-btn .profile-meta,
+  .profile-btn .profile-chev { display: none; }
+  .profile-btn { padding: 0 4px; }
+}
+
+/* Dropdown menu items */
+.dropdown-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; height: 36px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  text-align: left;
+  text-decoration: none;
+  transition: background 100ms ease;
+}
+.dropdown-item:hover { background: var(--bg-hover); }
+.dropdown-item.is-danger { color: var(--danger); }
+.dropdown-item.is-danger:hover { background: var(--danger-soft); }
+.dropdown-item-label { flex: 1; min-width: 0; }
+
+/* Profile dropdown panel — anchored under the profile button */
+.profile-panel {
+  position: absolute;
+  top: calc(100% + 6px); right: 0;
+  width: min(260px, calc(100vw - 24px));
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+  z-index: 60;
+  overflow: hidden;
+  padding: 6px;
+}
+
+/* Header — larger avatar + name + email, separated by a hairline. */
+.profile-panel-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 12px;
+  margin: -6px -6px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.profile-panel-id { min-width: 0; flex: 1; line-height: 1.2; }
+.profile-panel-name {
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.profile-panel-email {
+  font-size: 11px; color: var(--text-tertiary); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.profile-panel-sep {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 6px 4px;
+}
+
+/* Appearance / settings sub-sections inside the dropdown. */
+.profile-panel-section { padding: 4px 10px 6px; }
+.profile-panel-section-label {
+  margin-bottom: 8px;
+}

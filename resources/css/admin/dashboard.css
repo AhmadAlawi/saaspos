@@ -1,0 +1,777 @@
+/* ============================================================
+   Dashboard — hero stat, mini-KPIs, ops strip, bento cards,
+   heatmap, shift table.  Supplements cards.css + badges.css
+   which already define .card, .card-header, .card-body,
+   .section-head, .live-pulse, .badge-* colour variants.
+   ============================================================ */
+
+/* ─── Getting-started checklist ──────────────────────────── */
+.setup-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.setup-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.setup-card-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.setup-card-sub   { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; }
+.setup-dismiss {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.setup-dismiss:hover { color: var(--text-secondary); }
+.setup-dismiss:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.setup-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 16px;
+}
+.setup-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+.setup-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 300ms ease;
+}
+.setup-progress-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+/* "4 of 6 done" — secondary to the percentage it sits beside. */
+.setup-progress-count {
+  margin-inline-start: 6px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+/* ─── Optional (uncounted) steps ─────────────────────────── */
+.setup-optional-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-block: 18px 10px;
+  padding-block-start: 14px;
+  border-block-start: 1px solid var(--border-subtle);
+}
+.setup-optional-title { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.setup-optional-sub   { font-size: 11.5px; color: var(--text-tertiary); }
+/* Muted so they read as suggestions, not blockers. */
+.setup-steps-optional .setup-step-label { font-weight: 400; }
+
+/* ─── One-time "You're all set!" celebration ─────────────── */
+.setup-celebrate-head { display: flex; align-items: flex-start; gap: 12px; }
+.setup-celebrate-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--positive);
+  color: #fff;
+}
+
+.setup-steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 640px)  { .setup-steps { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .setup-steps { grid-template-columns: repeat(3, 1fr); } }
+
+.setup-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 100ms ease, background 100ms ease;
+}
+a.setup-step:hover { border-color: var(--accent); background: var(--bg-hover); }
+a.setup-step:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+
+.setup-step-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-default);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.setup-step.is-done .setup-step-check {
+  background: var(--positive);
+  border-color: var(--positive);
+}
+
+.setup-step-body { flex: 1; min-width: 0; }
+.setup-step-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-primary); }
+.setup-step-desc {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.setup-step.is-done .setup-step-label { color: var(--text-secondary); }
+
+.setup-step-go {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.setup-step-state {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--positive);
+}
+
+/* ─── Hero stat card ─────────────────────────────────────── */
+.stat-hero {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 20px 20px 0;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.stat-hero .eyebrow {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+.stat-hero .number {
+  font-size: 36px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  margin: 8px 0 10px;
+  line-height: 1;
+}
+.stat-hero .meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.stat-hero .now-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.stat-hero .chart-bg {
+  margin: 0 -20px;
+  height: 110px;
+  overflow: hidden;
+}
+
+/* ─── Trend chip ─────────────────────────────────────────── */
+.trend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.trend-chip.trend-up   { background: var(--positive-soft); color: var(--positive); }
+.trend-chip.trend-down { background: var(--danger-soft);   color: var(--danger); }
+.trend-chip.trend-flat { background: var(--bg-elevated);   color: var(--text-tertiary); }
+
+/* ─── Mini KPI card ──────────────────────────────────────── */
+.mini-kpi {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 14px 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  /* Cards double as links to their detail pages — keep the text styling
+     (labels/numbers set their own colours) and add a clickable affordance. */
+  color: inherit;
+  text-decoration: none;
+  transition: background .12s, border-color .12s;
+}
+a.mini-kpi { cursor: pointer; }
+a.mini-kpi:hover { background: var(--bg-hover); border-color: var(--border-default); }
+.mini-kpi .mini-kpi-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.mini-kpi .body { flex: 1; min-width: 0; }
+.mini-kpi .body .label {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.mini-kpi .body .num {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.mini-kpi .spark { flex-shrink: 0; }
+
+/* ─── Operations tile ────────────────────────────────────── */
+.ops-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 14px 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: background 120ms;
+  box-shadow: var(--shadow-card);
+}
+.ops-tile:hover { background: var(--bg-hover); }
+a.ops-tile { cursor: pointer; }
+.ops-tile .num {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.ops-tile .lbl {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ops-tile.is-critical { border-color: color-mix(in srgb, var(--danger)  25%, var(--border-subtle)); }
+.ops-tile.is-warning  { border-color: color-mix(in srgb, var(--warning) 25%, var(--border-subtle)); }
+
+/* ─── Icon circle ────────────────────────────────────────── */
+.icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* ─── Bento widget card ──────────────────────────────────── */
+.bento {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: visible;
+  box-shadow: var(--shadow-card);
+}
+.bento .card-header {
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.bento .card-body { padding: 16px; }
+
+/* ─── Section head top gap on dashboard ─────────────────── */
+.dash-section { margin-top: 28px; }
+.dash-section .h {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.dash-section .meta {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+/* ─── Period segmented control ───────────────────────────── */
+.var-seg {
+  display: inline-flex;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.var-seg button {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  transition: background 120ms, color 120ms;
+}
+.var-seg button:hover { color: var(--text-primary); }
+.var-seg button.is-active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+
+/* ─── Date-range button ──────────────────────────────────── */
+.date-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  transition: background 120ms;
+}
+.date-range:hover { background: var(--bg-hover); }
+
+/* ─── Top-products rows ──────────────────────────────────── */
+.tp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 100ms;
+}
+.tp-row:last-child { border-bottom: none; }
+.tp-row:hover { background: var(--bg-hover); }
+.tp-rank {
+  width: 22px;
+  text-align: end;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.tp-rank.is-top { color: var(--accent); }
+
+/* Larger thumbnail in top-products rows */
+.tp-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+/* 7-day mini trend bars */
+.tp-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 24px;
+  margin-inline-end: 10px;
+}
+.tp-bar {
+  width: 4px;
+  background: var(--border-default);
+  border-radius: 2px;
+  min-height: 3px;
+  transition: background 200ms;
+}
+.tp-bar.is-peak { background: var(--accent); }
+
+.product-thumb {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+.product-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ─── Mini bar sparkbar ──────────────────────────────────── */
+.mini-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.mini-bar span {
+  flex: 1;
+  min-width: 3px;
+  background: var(--border-default);
+  border-radius: 1px;
+  min-height: 2px;
+}
+.mini-bar span.peak { background: var(--accent); }
+
+/* ─── Low-stock rows ─────────────────────────────────────── */
+.ls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 100ms;
+}
+.ls-row:last-child { border-bottom: none; }
+.ls-row:hover { background: var(--bg-hover); }
+.progress {
+  height: 4px;
+  background: var(--bg-elevated);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--positive);
+}
+.progress.is-low  span { background: var(--danger); }
+.progress.is-med  span { background: var(--warning); }
+.progress.is-good span { background: var(--positive); }
+
+/* ─── Activity feed rows ─────────────────────────────────── */
+.act-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.act-row:last-child { border-bottom: none; }
+.activity-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ─── Shift staff table ──────────────────────────────────── */
+.shift-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─── Chart SVG helpers ──────────────────────────────────── */
+.chart-axis text {
+  fill: var(--text-tertiary);
+  font-size: 10px;
+  font-family: var(--font-sans);
+}
+.donut-label {
+  fill: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.donut-sub {
+  fill: var(--text-tertiary);
+  font-size: 8.5px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ─── Compact inline table (Shift card) ─────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table thead th {
+  text-align: start;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid var(--border-default);
+  white-space: nowrap;
+}
+.table thead th.num { text-align: end; }
+.table tbody td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody td.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+/* ─── Range-loading fade ─────────────────────────────────────── */
+.perf-loading { opacity: 0.45; pointer-events: none; transition: opacity 180ms; }
+
+/* ─── Floating chart tooltip ─────────────────────────────────── */
+.chart-tip {
+  position: fixed;
+  pointer-events: none;
+  z-index: 200;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 7px 12px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.14);
+  white-space: nowrap;
+  min-width: 100px;
+}
+.chart-tip-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
+}
+.chart-tip-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+/* ─── Rich card variant (heatmap hover) ──────────────────────── */
+.chart-tip-card {
+  padding: 0;
+  min-width: 220px;
+  overflow: hidden;
+}
+.chart-tip-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.chart-tip-head-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.chart-tip-head-meta {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip-headline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 12px 7px;
+}
+.chart-tip-headline-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.chart-tip-headline-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 12px 8px;
+}
+.chart-tip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.chart-tip-row-label {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.chart-tip-row-val {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.chart-tip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--accent);
+}
+
+/* Legend + heatmap swatches (moved off inline styles). Sizing stays
+   on Tailwind utilities in the markup; only colour/opacity live here. */
+.dash-swatch-current { background: var(--accent); }
+.dash-swatch-prev    { background: var(--text-tertiary); opacity: .5; }
+.dash-heat-1 { background: var(--accent); opacity: .15; }
+.dash-heat-2 { background: var(--accent); opacity: .35; }
+.dash-heat-3 { background: var(--accent); opacity: .55; }
+.dash-heat-4 { background: var(--accent); opacity: .75; }
+.dash-heat-5 { background: var(--accent); opacity: 1; }
+.chart-tip-foot {
+  padding: 7px 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Utility: tabular nums ──────────────────────────────── */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ─── Performance summary grid ───────────────────────────── */
+.perf-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+/* ============================================================
+   Responsive — phone & tablet.  The grid rows already stack via
+   Tailwind lg:/md: prefixes; these rules handle the bits Tailwind
+   can't reach: wide widgets that need horizontal scroll, section
+   heads whose period toggles must drop below the title, and the
+   3-up KPI strip that can't fit three money figures on a phone.
+   ============================================================ */
+
+/* Wide widgets (heatmap, shift table) scroll instead of squashing. */
+.dash-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.dash-heat-min { min-width: 480px; }
+.dash-scroll-x > .table { min-width: 360px; }
+
+/* Section heads: let the period segmented control wrap under the
+   title on narrow screens instead of overflowing the row. */
+.dash-section {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+@media (max-width: 640px) {
+  /* Three money figures can't share a phone row — stack them. */
+  .perf-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  /* Tighten card padding so content keeps more width on phones. */
+  .bento .card-body,
+  .bento .card-header { padding-inline: 14px; }
+  .stat-hero { padding-inline: 16px; }
+  .stat-hero .chart-bg { margin-inline: -16px; }
+}
+
+/* ─── Empty-state for widgets ────────────────────────────── */
+.widget-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  gap: 8px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 12.5px;
+}

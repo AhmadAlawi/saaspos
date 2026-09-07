@@ -1,0 +1,57 @@
+/* ============================================================
+   Generic dropdown — a relatively-positioned wrapper with a panel
+   anchored beneath it. Used by per-row action menus, export
+   pickers, etc.
+
+   Pairs with the `dropdown` Alpine factory (resources/js/admin/dropdowns.js):
+
+     <div class="dropdown" x-data="dropdown">
+         <button @click="toggle()">…</button>
+         <div class="dropdown-panel"
+              x-show="open"
+              x-cloak
+              @click.outside="close()"
+              @keydown.escape.window="close()">
+             <a class="dropdown-item">…</a>
+         </div>
+     </div>
+   ============================================================ */
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline-end: 0;
+  z-index: 50;
+  min-width: 180px;
+  padding: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: var(--shadow-pop);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dark .dropdown-panel {
+  background: var(--bg-elevated);
+}
+
+.dropdown-sep {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border-subtle);
+  border: none;
+}
+
+.dropdown-item-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent);
+  flex-shrink: 0;
+}

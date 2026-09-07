@@ -1,0 +1,242 @@
+/* ============================================================
+   Auth pages — login, password reset, MFA challenge
+   Full-viewport centered card on the page background with a
+   subtle accent-tinted radial wash for depth.
+   ============================================================ */
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  background:
+    radial-gradient(900px circle at 50% -10%, color-mix(in srgb, var(--accent) 8%, transparent), transparent 60%),
+    radial-gradient(700px circle at 50% 110%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 60%),
+    var(--bg-page);
+  position: relative;
+}
+
+.auth-topbar {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 14px 16px;
+}
+
+.auth-main {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px;
+  padding: 24px 16px 40px;
+}
+
+/* Demo-mode banner — sits above the login card, same max-width so it
+   visually aligns with the card edges. */
+.auth-demo-banner {
+  width: 100%;
+  max-width: 440px;
+  margin: 0;
+}
+.auth-footer {
+  text-align: center;
+  padding: 12px 16px 20px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 40px 36px 28px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  /* Safety net: a too-wide brand (e.g. two logos side-by-side from a
+     misconfigured swap) should never escape the card. */
+  overflow: hidden;
+}
+
+/* ── Brand row ─────────────────────────────────────────────── */
+.auth-brand {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  margin-bottom: 32px;
+}
+.auth-brand-mark {
+  width: 44px; height: 44px;
+  border-radius: 11px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 18px;
+  box-shadow:
+    0 1px 2px rgba(249,115,22,0.35),
+    0 6px 14px -4px rgba(249,115,22,0.30);
+}
+.auth-brand-text { line-height: 1.2; }
+.auth-brand-name {
+  font-size: 14.5px; font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+.auth-brand-sub  { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+/* App logo — sizing only. Visibility is owned by the
+   `-light` / `-dark` variant classes below so Tailwind's
+   `@layer utilities` cascade can't accidentally show both. */
+.auth-brand-logo {
+  max-height: 60px;
+  max-width: 220px;
+  object-fit: contain;
+  object-position: center;
+}
+
+/* Light / dark swap — pure CSS, no Tailwind utilities. The `:where`
+   wrapper keeps the `.dark` ancestor selectors at the same low
+   specificity so they don't accidentally beat unrelated rules. */
+.auth-brand-logo-light { display: block; }
+.auth-brand-logo-dark  { display: none; }
+
+:where(.dark, .dark *) .auth-brand-logo-light { display: none; }
+:where(.dark, .dark *) .auth-brand-logo-dark  { display: block; }
+
+/* ── Heading ───────────────────────────────────────────────── */
+.auth-title {
+  font-size: 24px; font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+  margin-bottom: 6px;
+}
+.auth-sub {
+  font-size: 13.5px; color: var(--text-secondary);
+  margin-bottom: 28px;
+  line-height: 1.5;
+}
+
+/* ── Action row (remember me / forgot password) ────────────── */
+.auth-actions-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  margin-bottom: 24px;
+  font-size: 12.5px;
+}
+/* Single-action variant — centered, tighter top gap (forgot/reset pages). */
+.auth-actions-row--center { margin-top: 12px; justify-content: center; }
+.auth-remember {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.auth-remember:hover { color: var(--text-primary); }
+.auth-remember input {
+  accent-color: var(--accent);
+  width: 14px; height: 14px;
+}
+.auth-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+}
+.auth-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── Submit button — slightly taller for a more premium feel ── */
+.auth-submit {
+  width: 100%;
+  height: 46px;
+  margin-top: 20px;       /* breathing room from whatever sits above */
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+}
+
+/* ── Demo credentials block ──────────────────────────────────
+   Only renders when POS_DEMO_MODE=true AND at least one
+   credential pair is configured. Sits between the submit
+   button and the footer; each card has a Copy & Fill button
+   that pastes the email + password into the form inputs. */
+.demo-creds {
+  margin-top: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--surface-muted, var(--surface));
+  display: flex; flex-direction: column; gap: 12px;
+}
+.demo-creds-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.demo-creds-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.demo-creds-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.demo-cred-card {
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--surface);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.demo-cred-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px;
+}
+.demo-cred-role {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.demo-cred-fill-btn {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.demo-cred-fill-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.demo-cred-fields {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 0;
+}
+.demo-cred-fields > div {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12.5px;
+}
+.demo-cred-fields dt {
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin: 0;
+}
+.demo-cred-fields dd {
+  margin: 0;
+}
+.demo-cred-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.auth-footer {
+  margin-top: 28px;
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.auth-footer .auth-link { font-weight: 500; margin-inline-start: 2px; }

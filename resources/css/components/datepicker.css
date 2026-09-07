@@ -1,0 +1,358 @@
+/* ============================================================
+   Flatpickr theme — restyles the default Flatpickr calendar to
+   match the design system's tokens. Pairs with the Alpine
+   factory in resources/js/admin/datepicker.js.
+
+   We don't import Flatpickr's stock CSS — re-implementing the
+   layout is cheaper than overriding two layers of stylesheet,
+   and keeps the bundle small.
+   ============================================================ */
+
+/* ── Calendar shell ──────────────────────────────────────── */
+/* `position: absolute` is critical. Flatpickr positions the calendar
+   by writing inline `top`/`left` styles relative to the nearest
+   positioned ancestor (effectively the document). Without it, the
+   inline coordinates have no effect — the calendar either stays
+   `display: none` (because `.open` never resolves correctly) or
+   renders in document flow far from the trigger input. */
+.flatpickr-calendar {
+  position: absolute;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 8px;
+  width: 308px;
+  margin-top: 4px;
+  /* Above sticky table headers + dropdowns, below modals/toasts. */
+  z-index: 100;
+  /* Triple-shield (display + visibility + opacity) mirrors Flatpickr's
+     stock CSS so the open/close transition is reliable. */
+  display: none;
+  visibility: hidden;
+  opacity: 0;
+}
+.flatpickr-calendar.open {
+  display: inline-block;
+  visibility: visible;
+  opacity: 1;
+}
+
+.dark .flatpickr-calendar { background: var(--bg-elevated); }
+
+/* ── Month / year navigation strip ───────────────────────── */
+.flatpickr-months {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 10px;
+  position: relative;
+}
+.flatpickr-month {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.flatpickr-current-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.flatpickr-current-month .cur-month {
+  font-weight: 600;
+}
+.flatpickr-current-month .numInputWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.flatpickr-current-month input.cur-year {
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13.5px;
+  width: 48px;
+  text-align: center;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+.flatpickr-current-month input.cur-year:focus { outline: none; }
+.flatpickr-current-month .numInputWrapper span.arrowUp,
+.flatpickr-current-month .numInputWrapper span.arrowDown { display: none; }
+
+/* Month picker dropdown (alternative to next/prev arrows in some
+   Flatpickr configs). */
+.flatpickr-monthDropdown-months {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13.5px;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.flatpickr-monthDropdown-months:focus { outline: none; }
+
+/* Prev / next arrows. */
+.flatpickr-prev-month,
+.flatpickr-next-month {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+.flatpickr-prev-month:hover,
+.flatpickr-next-month:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.flatpickr-prev-month svg,
+.flatpickr-next-month svg {
+  width: 14px; height: 14px;
+  fill: currentColor;
+}
+
+/* ── Weekday labels ──────────────────────────────────────── */
+.flatpickr-weekdays { padding: 2px 0 6px; }
+.flatpickr-weekdaycontainer {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.flatpickr-weekday {
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 4px 0;
+}
+
+/* ── Day cells ───────────────────────────────────────────── */
+.flatpickr-days { padding: 4px 0; }
+.dayContainer {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  width: 100%;
+}
+.flatpickr-day {
+  height: 32px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+.flatpickr-day:hover {
+  background: var(--bg-hover);
+}
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+  color: var(--text-tertiary);
+  opacity: 0.55;
+}
+.flatpickr-day.today {
+  color: var(--accent);
+  font-weight: 600;
+}
+.flatpickr-day.today:not(.selected) {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.flatpickr-disabled:hover {
+  background: transparent;
+  color: var(--text-tertiary);
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* In-range styling (only relevant if mode: 'range' is ever enabled). */
+.flatpickr-day.inRange {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text-primary);
+}
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ── Inline footer (clear / today buttons) ───────────────── */
+.flatpickr-input + .flatpickr-calendar .flatpickr-footer {
+  display: none;
+}
+
+/* ── Hide week-number column (we don't enable it). ───────── */
+.flatpickr-weeks { display: none; }
+
+/* ── Trigger input — keep `.pos-input` styling intact ────── */
+/* Flatpickr swaps `type=date` for `type=text` under the hood;
+   our `.pos-input` rules still apply unchanged. The OS calendar
+   icon vanishes because there's no longer a date input. */
+.flatpickr-input.pos-input { background-image: none; }
+
+/* ── Month picker: themed button + popover ─────────────────
+   Replaces flatpickr's native `<select>` (whose open state shows
+   the unstyleable browser list). The native select stays in the
+   DOM (hidden) — flatpickr reads from it on month changes; we
+   update its value when the user picks. JS:
+   datepicker.js#attachMonthDropdown. */
+.fp-month-native-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.flatpickr-current-month.fp-month-with-dropdown-wrap {
+  position: relative;
+}
+
+.fp-month-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  margin-inline-end: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.fp-month-btn:hover,
+.fp-month-btn.is-open {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  border-color: var(--border-default);
+}
+.fp-month-label { line-height: 1; }
+
+.fp-month-list {
+  position: absolute;
+  top: 100%;
+  inset-inline-start: 0;
+  margin-top: 4px;
+  z-index: 1000;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 4px;
+  min-width: 140px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.fp-month-opt {
+  display: block;
+  width: 100%;
+  text-align: start;
+  padding: 6px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.fp-month-opt:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.fp-month-opt.is-active {
+  background: var(--accent);
+  color: var(--accent-fg, white);
+}
+
+/* ── Year picker: typeable input + dropdown chevron ────────
+   Year stays typeable AND gets a chevron button beside it that
+   opens a popover list of selectable years. Lets users jump 30
+   years with one click instead of clicking the spinner 30 times.
+   JS in datepicker.js#attachYearDropdown. */
+.flatpickr-current-month .numInputWrapper.fp-year-with-dropdown-wrap {
+  position: relative;
+}
+
+.fp-year-chevron {
+  margin-inline-start: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.fp-year-chevron:hover,
+.fp-year-chevron.is-open {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.fp-year-list {
+  position: absolute;
+  top: 100%;
+  inset-inline-end: 0;
+  margin-top: 4px;
+  z-index: 1000;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 4px;
+  min-width: 90px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.fp-year-opt {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 6px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.fp-year-opt:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.fp-year-opt.is-active {
+  background: var(--accent);
+  color: var(--accent-fg, white);
+}

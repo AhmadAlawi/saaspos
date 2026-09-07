@@ -1,0 +1,11 @@
+/* ============================================================
+   Auth CSS entry — loads the shared design system + auth shell
+   ============================================================ */
+
+@import './app.css';
+
+@import './auth/login.css';
+
+/* PIN pad on the login screen (components/cashier/pin-pad.blade.php) —
+   shared with admin/cashier.css, which the auth bundle never loads. */
+@import './components/pin-pad.css';

@@ -1,0 +1,55 @@
+/* ============================================================
+   Stores list — row identity + inline action cluster.
+   ============================================================ */
+
+.store-row-id { display: flex; flex-direction: column; line-height: 1.3; }
+.store-row-name-line { display: inline-flex; align-items: center; gap: 8px; }
+.store-row-name { font-weight: 600; color: var(--text-primary); }
+.store-row-code { font-size: 11.5px; color: var(--text-tertiary); }
+
+/* "Default" pill next to the store name. */
+.store-default-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding-inline: 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+/* Actions header + cell align to the end of the row, matching the
+   inline `.prod-row-actions` cluster reused from the Products table. */
+.dt-actions-col { text-align: end; }
+.dt-table tbody td .prod-row-actions { justify-content: flex-end; width: 100%; }
+.prod-row-actions form { margin: 0; }
+
+/* Switch-to-store action — icon + label rendered as a compact pill so it
+   reads as a distinct action next to the icon-only toggle/delete buttons. */
+.store-switch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding-inline: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.dark .store-switch-pill { background: var(--bg-elevated); }
+.store-switch-pill:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.store-switch-pill svg { flex-shrink: 0; }

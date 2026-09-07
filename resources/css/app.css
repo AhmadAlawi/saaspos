@@ -1,0 +1,49 @@
+/* ============================================================
+   POS — main CSS entry
+   Tailwind 4 directives + design tokens + component library.
+   Loaded by the installer, admin, and cashier entries.
+   ============================================================ */
+
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+/* Tailwind 4 defaults dark mode to OS preference. We control it with `dark` on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Design tokens + base */
+@import './tokens.css';
+@import './base.css';
+
+/* Component library — order matters: typography → forms → buttons → surfaces → status → controls → feedback → overlays → tabs. */
+@import './components/typography.css';
+@import './components/forms.css';
+@import './components/buttons.css';
+@import './components/cards.css';
+@import './components/badges.css';
+@import './components/avatar.css';
+@import './components/controls.css';
+@import './components/feedback.css';
+@import './components/overlays.css';
+@import './components/tabs.css';
+@import './components/dropdown.css';
+@import './components/data-table.css';
+@import './components/summary-cards.css';
+@import './components/row-actions.css';
+@import './components/cell-peek.css';
+@import './components/toast.css';
+@import './components/select.css';
+@import './components/image-upload.css';
+@import './components/datepicker.css';
+@import './components/time-picker.css';
+@import './components/statement.css';
+@import './components/phone-input.css';
+@import './components/bulk-images.css';

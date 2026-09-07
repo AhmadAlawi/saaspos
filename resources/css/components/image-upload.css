@@ -1,0 +1,181 @@
+/* ============================================================
+   Image upload — drop zone + preview for a single image field.
+   Pairs with the `imageUpload` Alpine factory and the
+   <x-admin.image-upload> Blade component.
+
+   Three visual states:
+     .img-upload-zone.is-empty     — empty, shows icon + hint
+     .img-upload-zone (has image)  — preview thumb fills the zone
+     .img-upload-zone.is-dragover  — accent border while dragging
+   ============================================================ */
+
+.img-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.img-upload-zone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 120px;
+  border: 1.5px dashed var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.img-upload-zone:hover { border-color: var(--accent); }
+.img-upload-zone.is-dragover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
+}
+.img-upload-zone:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.img-upload-preview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.img-upload-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  text-align: center;
+  padding: 12px;
+  pointer-events: none;
+}
+.img-upload-empty-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.img-upload-empty-title { font-weight: 500; color: var(--text-secondary); font-size: 12.5px; }
+.img-upload-empty-sub   { font-size: 11px; }
+
+.img-upload-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.img-upload-action {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+.img-upload-action:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.img-upload-action.is-danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.img-upload-error {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--danger);
+}
+
+/* Hide the real file input — we click it programmatically via the
+   Alpine factory. Using the sr-only pattern (absolute + 1×1 + opacity 0)
+   rather than `display: none`. Some older browsers and Webkit-based
+   embedded views disable .click() on `display: none` file inputs;
+   the sr-only pattern keeps the element interactive while invisible. */
+.img-upload-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+}
+
+/* ---- Inline variant (matches design-system/admin/Product.html) -----
+   140px square tile on the start, info + action buttons on the end. */
+.img-upload.is-inline { gap: 0; }
+.img-upload-inline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.img-upload-tile {
+  position: relative;
+  flex: 0 0 140px;
+  width: 140px; height: 140px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.img-upload-tile:hover { border-color: var(--accent); }
+.img-upload-tile.is-empty { border-style: dashed; }
+.img-upload-tile.is-dragover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-elevated));
+}
+.img-upload-tile:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.img-upload-tile-ph {
+  color: var(--text-tertiary);
+  display: inline-flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.img-upload-inline-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.img-upload-inline-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.img-upload-inline-hint {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.img-upload-inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}

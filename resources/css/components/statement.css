@@ -1,0 +1,66 @@
+/* ============================================================
+   Financial statements — Profit & Loss and Balance Sheet.
+   A quiet two-column layout (account → amount) with section
+   headers, subtotals, and emphasised final totals. Themed from
+   design tokens so light/dark + RTL come for free.
+   ============================================================ */
+
+.stmt-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stmt-table td {
+  padding: 5px 18px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.stmt-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Section header (INCOME, ASSETS, …). */
+.stmt-section-row td {
+  padding-top: 18px;
+  padding-bottom: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+/* Individual account line, indented under its section. */
+.stmt-acct-row td:first-child {
+  padding-inline-start: 30px;
+}
+.stmt-acct-row .stmt-code {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  margin-inline-end: 8px;
+}
+
+/* Section subtotal (Total income, Total assets, …). */
+.stmt-subtotal-row td {
+  border-top: 1px solid var(--border-default);
+  font-weight: 600;
+}
+
+/* Emphasised totals (Gross profit, Net profit, Total liabilities + equity). */
+.stmt-total-row td {
+  border-top: 2px solid var(--border-default);
+  font-weight: 700;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+.stmt-total-row.is-final td {
+  font-size: 15px;
+}
+
+/* Negative gross / net profit reads red. */
+.stmt-neg {
+  color: var(--danger);
+}

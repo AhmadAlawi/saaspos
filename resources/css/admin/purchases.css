@@ -1,0 +1,281 @@
+/* ============================================================
+   Purchases — draft form chrome (Slice 2)
+   ============================================================ */
+
+/* Accent-tinted outline for the post-receive price-change card. */
+.card-accent-outline { border-color: color-mix(in oklab, var(--accent, #3b82f6) 35%, transparent); }
+
+/* ── Product picker ───────────────────────────────────────── */
+.pur-picker {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.pur-picker-results {
+  position: absolute;
+  left: 0; right: 0; top: calc(100% + 4px);
+  z-index: 20;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.pur-picker-row {
+  display: block;
+  width: 100%;
+  text-align: start;
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pur-picker-row:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.pur-picker-variant {
+  padding-inline-start: 28px;
+  color: var(--text-secondary);
+}
+
+.pur-picker-empty {
+  color: var(--text-tertiary);
+  cursor: default;
+}
+
+.pur-picker-empty:hover { background: transparent; }
+
+/* ── Lines table — denser than the stock list-tables ──────── */
+.pur-lines th,
+.pur-lines td {
+  vertical-align: middle;
+  padding: 8px 10px;
+}
+
+/* Seven columns — five of them editors — don't fit the 620px baseline
+   `.dt-table--lines` allows. Without a wider floor the browser steals
+   width from the inputs (they have no intrinsic width) and hands it to
+   the product name, which then wraps to five lines while qty / cost
+   squash to a few pixels. Raise the floor and let `.dt-scroll` scroll. */
+.dt-scroll > .dt-table.pur-lines { min-width: 880px; }
+
+/* Fixed widths for the editor columns; the product column takes whatever
+   is left over. Applied to the header cells so auto-layout distributes
+   from them. */
+.pur-lines th:nth-child(1) { min-width: 200px; }
+.pur-lines th:nth-child(2) { width: 92px; }   /* qty       */
+.pur-lines th:nth-child(3) { width: 120px; }  /* unit cost */
+.pur-lines th:nth-child(4) { width: 92px; }   /* disc %    */
+.pur-lines th:nth-child(5) { width: 166px; }  /* tax group */
+.pur-lines th:nth-child(6) { width: 120px; }  /* line total*/
+.pur-lines th:nth-child(7) { width: 84px; }   /* actions   */
+
+/* Inputs fill their cell rather than falling back to the browser's
+   default `size` width, and `min-width: 0` lets them shrink to the
+   column instead of forcing the column to grow. */
+.pur-lines td .pos-input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Each line is its own <tbody> so the optional batch sub-row hangs
+ * cleanly under its main row. A subtle separator under every
+ * tbody-line replaces the per-row border we'd normally rely on. */
+.pur-lines > tbody {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pur-lines > tbody:last-child {
+  border-bottom: 0;
+}
+.pur-lines > tbody > tr > td {
+  border-bottom: 0;
+}
+
+.pur-line-product {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Read-only price context under the product name: what we sell this for
+ * vs. what we're about to pay for it. Never an input — a PO must not
+ * reprice stock already on the shelf (docs/features/suppliers-purchases.md
+ * §5.7). Lives in the product cell rather than in its own columns: the
+ * lines table is already 7 wide, and on a 768px tablet extra numeric
+ * columns push qty and unit cost off-screen. */
+.pur-line-price {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-tertiary);
+}
+.pur-line-price .val {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.pur-line-price .sep { opacity: 0.45; }
+
+/* One-line explanation shown in place of the price context when the PO's
+ * currency isn't the base currency. Quiet — it's an absence of data, not a
+ * problem with the PO. */
+.pur-price-fx {
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+/* Implied-markup chip. Quiet by default; warns below the owner's target
+ * and turns danger once cost has met or passed the selling price. Tones
+ * mirror the badge-* scale. */
+.pur-mk {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.pur-mk-ok   { background: var(--positive-soft); color: var(--positive); }
+.pur-mk-warn { background: var(--warning-soft);  color: var(--warning); }
+.pur-mk-bad  { background: var(--danger-soft);   color: var(--danger); }
+
+/* "BATCH" pill — flags rows where batch + expiry inputs render under
+ * the product label. Keeps long item lists scannable. */
+.pur-line-batch-chip {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Batch / expiry sub-row — sits directly under its main line.
+ * Three inputs in a row on wide screens, stacks on narrow. The
+ * row is muted with a slightly tinted background so the eye reads
+ * the main row + sub-row as a single visual unit. */
+.pur-line-batch-row > td {
+  padding: 0 10px 10px 10px;   /* no top padding — sits flush against the main row */
+}
+
+.pur-line-batch-fields {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.3fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-inline-start: 3px solid var(--accent-soft);
+  border-radius: 6px;
+}
+
+@media (max-width: 900px) {
+  .pur-line-batch-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pur-line-batch-field {
+  margin: 0;
+}
+
+.pur-line-batch-field .field-label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.pur-line-batch-field .pos-input-compact {
+  height: 32px;
+  font-size: 12.5px;
+  padding-block: 0;
+}
+
+/* `.pos-input-compact` lets us use the canonical input styling in a
+   denser-than-normal table row without overriding `.pos-input`.
+   Defined here so it's available wherever inline editors are used. */
+.pos-input-compact {
+  height: 36px !important;
+  padding-block: 4px !important;
+  font-size: 13px;
+}
+
+.pur-lines select.pos-input-compact {
+  padding-inline-end: 28px !important;
+  background-position: right 8px center;
+  background-size: 12px 12px;
+}
+
+/* The Tax column's enhanced select (TomSelect) would otherwise grow to
+   fit its content ("Reduced food rate (3%)"). Hold it to the column;
+   the full name shows on hover via the item title (see enhancedSelect). */
+.pur-lines .ts-wrapper {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Numeric inputs in the lines table sit a bit narrower — they hold
+   small whole numbers or money amounts, not free text. */
+.pur-line-qty input,
+.pur-lines td.num input,
+.pur-lines td input[type="number"] {
+  text-align: end;
+}
+
+/* Chrome reserves ~16px inside the field for the spinner; with the
+   column now sized to the digits, trim the inner padding so the value
+   isn't pushed out of view. */
+.pur-lines td input[type="number"].pos-input-compact {
+  padding-inline: 8px;
+}
+
+/* ── Supplier-payment Auto-allocate bar ───────────────────
+   The "type a total → spread it FIFO" control on the create form. */
+.pa-auto-bar {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.dark .pa-auto-bar {
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated));
+}
+.pa-auto-input { flex: 0 0 220px; margin: 0; }
+.pa-auto-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+
+.fg-warning { color: var(--warning, #b45309); }
+.dark .fg-warning { color: #fbbf24; }

@@ -1,0 +1,90 @@
+@import './app.css';
+
+/* ── Chrome moved off inline styles ───────────────────────────── */
+.installer-body { background: var(--bg-page); color: var(--text-primary); font-family: var(--font-sans); }
+/* Step-indicator dots (carry box-shadow rings the rail draws). */
+.installer-step-dot-active { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--bg-page); }
+.installer-step-dot-todo   { background: var(--bg-page); box-shadow: 0 0 0 1px var(--border-default); }
+/* Error-screen badge tint. */
+.installer-error-badge { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
+
+/* ── Installer help drawer (§12) ──────────────────────────────── */
+
+.installer-help-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 60;
+}
+
+.installer-help-drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: min(380px, 92vw);
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-inline-start: 1px solid var(--border-subtle);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
+}
+
+/* Slide-in (Alpine x-transition custom classes). Resting state = on-screen. */
+.installer-help-enter { transition: transform 0.25s ease, opacity 0.25s ease; }
+.installer-help-enter-start { transform: translateX(100%); opacity: 0; }
+.installer-help-enter-end { transform: translateX(0); opacity: 1; }
+[dir="rtl"] .installer-help-enter-start { transform: translateX(-100%); }
+
+.installer-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.installer-help-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 18px 18px;
+}
+
+.installer-help-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.installer-help-item:last-child { border-bottom: 0; }
+
+.installer-help-q {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.installer-help-a {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.installer-help-foot {
+  flex-shrink: 0;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12.5px;
+  display: flex;
+  gap: 6px;
+}
+
+/* Brand logo in the installer header (public/brand/logo.png|svg). Capped so
+   any reasonable wordmark/lockup sits neatly beside the theme toggle. */
+.installer-logo {
+  height: 36px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+}

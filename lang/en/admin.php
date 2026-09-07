@@ -1,0 +1,378 @@
+<?php
+
+return [
+    'app_title' => 'Admin',
+
+    'toast' => [
+        'dismiss'           => 'Dismiss notification',
+        'validation_title'  => 'Please review the form',
+    ],
+
+    'license_banner' => [
+        'invalid'    => 'Your license could not be confirmed and is showing as invalid. Your store keeps working — please review it.',
+        'unverified' => 'We couldn\'t verify your license recently. Check your connection or contact support — your store keeps working.',
+        'action'     => 'View license',
+    ],
+
+    'image_upload' => [
+        'title'   => 'Drag an image or click to browse',
+        'sub'     => 'PNG, JPG, or SVG · up to :size KB',
+        'upload'  => 'Upload',
+        'replace' => 'Replace',
+        'remove'  => 'Remove',
+    ],
+
+    'file_upload' => [
+        'title'     => 'Click to upload or drag & drop',
+        'sub'       => 'PDF, image, or document',
+        'clear'     => 'Remove file',
+        'too_large' => 'File is too large — keep it under :size.',
+    ],
+
+    // Topbar "End of day" report modal.
+    'day_summary' => [
+        'title'             => "Today's summary",
+        'today'             => 'Today',
+        'refresh'           => 'Refresh',
+        'close'             => 'Close',
+        'loading'           => 'Loading…',
+
+        'sales_summary'     => 'Sales summary',
+        'purchase_summary'  => 'Purchase summary',
+        'transactions'      => 'Transactions',
+        'gross'             => 'Gross sales',
+        'gross_purchase'    => 'Gross purchase',
+        'discounts'         => 'Discounts',
+        'taxable'           => 'Taxable amount',
+        'tax'               => 'Tax',
+        'net_sales'         => 'Net sales',
+        'net_purchase'      => 'Net purchase',
+        'items_sold'        => 'Items sold',
+        'items_purchased'   => 'Items purchased',
+        'returns'           => 'Returns',
+        'average_sale'      => 'Average sale',
+        'average_purchase'  => 'Average purchase',
+
+        'stock_summary'     => 'Stock summary',
+        'stock_cost'        => 'Stock on hand (at cost)',
+        'stock_retail'      => 'Stock on hand (at retail)',
+        'stock_potential'   => 'Potential margin',
+        'stock_units'       => 'Units in stock',
+        'out_of_stock'      => 'Out of stock',
+        'profit'            => 'Profit',
+
+        'payment_breakdown' => 'Payment breakdown',
+        'cash'              => 'Cash',
+        'bank'              => 'Bank',
+        'total'             => 'Total',
+        'received'          => 'Received',
+        'given'             => 'Given',
+
+        'cogs'              => 'Cost of goods sold',
+        'gross_profit'      => 'Gross profit',
+        'net_profit'        => 'Net profit',
+        'tax_collected'     => 'Tax collected',
+        'tax_paid'          => 'Tax paid',
+        'expenses'          => 'Expenses',
+
+        'new_customers'     => 'New customers',
+        'low_stock'         => 'Low stock',
+        'cashiers'          => 'On shift',
+        'open_dashboard'    => 'Open full dashboard',
+    ],
+
+    'demo' => [
+        'buy_now' => 'Buy now',
+    ],
+
+    'shell' => [
+        'brand_sub'           => 'Back office',
+        'toggle_sidebar'      => 'Toggle sidebar',
+        'open_drawer'         => 'Open menu',
+        'close_drawer'        => 'Close menu',
+        'primary_nav'         => 'Primary navigation',
+        'breadcrumb'          => 'Breadcrumb',
+        'has_alert'           => 'Has alert',
+        'status_online'       => 'All systems online',
+        'documentation'       => 'Documentation',
+        'open_pos'            => 'Open POS (⌘⇧R)',
+        'install_app'         => 'Install app',
+        'update_app'          => 'Update available — click to refresh',
+        'install_help' => [
+            'title'   => 'Install this app',
+            'sub'     => 'Add the POS to your device for quick, full-screen access.',
+            'ios'     => 'In Safari, tap the Share button (the box with an up-arrow), then choose “Add to Home Screen”.',
+            'android' => 'Open your browser menu (⋮) and tap “Install app” or “Add to Home screen”.',
+            'desktop' => 'Click the install icon at the right of the address bar, or open the browser menu and choose “Install POS…”. (Available in Chrome and Edge.)',
+            'firefox' => 'Firefox on desktop can’t install web apps — open this page in Chrome or Edge to install. On Android, use the Firefox menu → “Install”.',
+            'close'   => 'Got it',
+        ],
+        'guest'               => 'Guest',
+        'role_admin'          => 'Administrator',
+        'notifications'       => 'Notifications',
+        'notifications_empty_sub' => "You're all caught up",
+        'no_notifications'    => 'No notifications',
+        'no_notifications_sub'=> 'New activity will appear here when something needs your attention.',
+        'mark_all_read'       => 'Mark all read',
+        'search_placeholder'  => 'Search products, orders, customers…',
+
+        'menu' => [
+            'profile'    => 'Profile & preferences',
+            'settings'   => 'Store settings',
+            'open_pos'   => 'Open POS',
+            'appearance' => 'Appearance',
+            'light'      => 'Light',
+            'dark'       => 'Dark',
+            'auto'       => 'Auto',
+            'sign_out'   => 'Sign out',
+        ],
+    ],
+
+    'cmd' => [
+        'placeholder' => 'Search anywhere…',
+        'close'       => 'Close',
+        'empty_title' => 'No matches',
+        'empty_sub'   => 'Try a different search or pick a different scope.',
+        'hint_go'     => 'Go to',
+        'hint_nav'    => 'Navigate',
+        'hint_close'  => 'Close',
+    ],
+
+    'dashboard' => [
+        'setup' => [
+            'title'           => 'Get your store ready',
+            'sub'             => 'A few basics to set up before you start selling.',
+            'progress'        => ':done of :total done',
+            'dismiss'         => 'Dismiss',
+            'go'              => 'Set up',
+            'done'            => 'Done',
+            'optional_title'  => 'Recommended next',
+            'optional_sub'    => 'Not required to sell — set these up when you’re ready.',
+            'celebrate_title' => 'You’re all set!',
+            'celebrate_sub'   => 'Every essential is in place — your store is ready to take its first sale.',
+            'celebrate_cta'   => 'Open the cashier',
+            'steps'    => [
+                'company_profile' => ['label' => 'Add your logo',          'desc' => 'Brand your receipts and the app with your store logo.'],
+                'tax_component'   => ['label' => 'Add a tax rate',         'desc' => 'A single rate, like VAT 5% — tax groups are built from these.'],
+                'tax'             => ['label' => 'Set up a tax group',     'desc' => 'Combine your tax rates into the group applied at checkout.'],
+                'category'        => ['label' => 'Add a category',         'desc' => 'Group your products so the catalog stays tidy.'],
+                'product'         => ['label' => 'Add a product',          'desc' => 'Add something you sell so it can be rung up.'],
+                'stock'           => ['label' => 'Add opening stock',      'desc' => 'A product with no stock on hand can’t be sold.'],
+                'terminal'        => ['label' => 'Set up a terminal',      'desc' => 'Register a till so receipts and the cash drawer work.'],
+                'payment_method'  => ['label' => 'Review payment methods', 'desc' => 'Choose how customers pay — cash, card, UPI, and more.'],
+                'supplier'        => ['label' => 'Add a supplier',         'desc' => 'Needed to record purchases and restock.'],
+                'customer'        => ['label' => 'Add a customer',         'desc' => 'Needed for credit sales and statements.'],
+                'staff'           => ['label' => 'Invite a staff member',  'desc' => 'Give cashiers their own login and permissions.'],
+            ],
+        ],
+        'title'           => 'Dashboard',
+        'greeting_morning'=> 'Good morning',
+        'greeting_afternoon'=> 'Good afternoon',
+        'greeting_evening'=> 'Good evening',
+        'live_label'      => 'Live',
+        'date_range_today'     => 'Today',
+        'date_range_yesterday' => 'Yesterday',
+        'date_range_7d'        => 'Last 7 days',
+        'date_range_15d'       => 'Last 15 days',
+        'date_range_30d'       => 'Last 30 days',
+        'date_range_60d'       => 'Last 60 days',
+        'date_range_90d'       => 'Last 90 days',
+        'date_range_custom'    => 'Custom range',
+        'date_range_from'      => 'From',
+        'date_range_to'        => 'To',
+        'date_range_apply'     => 'Apply',
+        'export'          => 'Export',
+        'uncategorized'   => 'Uncategorized',
+        'guest_cashier'   => 'System',
+        'no_data'         => 'No data yet',
+        'no_data_sub'     => 'Start ringing up sales to see your dashboard metrics.',
+        'sold'            => 'sold',
+        'reorder'         => 'Reorder',
+        'manage'          => 'Manage',
+        'see_all'         => 'See all',
+        'reorder_all'     => 'Reorder all',
+        'all_reports'     => 'All reports',
+        'manage_products' => 'Manage products',
+
+        'kpi' => [
+            'today_sales'    => 'Today\'s sales',
+            'transactions'   => 'Transactions',
+            'avg_basket'     => 'avg basket',
+            'items'          => 'items',
+            'new_customers'  => 'New customers',
+            'refunds'        => 'Refunds',
+            'vs_avg'         => 'vs avg :day',
+        ],
+
+        'ops' => [
+            'title'           => 'Operations',
+            'realtime'        => 'Real-time · auto-refresh 30s',
+            'items_below_reorder' => 'Low stock items',
+            'items_oversold'      => 'Oversold items',
+            'pos_in_transit'  => 'Orders in transit',
+            'open_till'       => 'Today\'s revenue',
+            'cashiers_on_shift' => 'Active cashiers',
+        ],
+
+        'performance' => [
+            'title'        => 'Performance',
+            'net_sales'    => 'Net sales',
+            'period_label' => 'Current 14d vs previous 14d',
+            'period_today' => 'Today vs yesterday',
+            'period_7d'    => 'Last 7 days vs prior 7 days',
+            'period_30d'   => 'Last 30 days vs prior 30 days',
+            'avg_basket'   => 'Avg basket',
+            'gross_margin' => 'Gross margin',
+            'this'         => 'This',
+            'previous'     => 'Previous',
+            'category_mix' => 'Category mix',
+            'today'        => 'Today',
+        ],
+
+        'catalog' => [
+            'title'         => 'Catalog insights',
+            'top_products'  => 'Top products',
+            'low_stock'     => 'Low stock',
+            'low_stock_sub' => 'Below reorder point',
+            'activity'      => 'Activity',
+        ],
+
+        'insights' => [
+            'title'           => 'Insights',
+            'heatmap_title'   => 'Sales by hour & day',
+            'heatmap_sub'     => 'Last 7 days · darker = busier',
+            'legend_low'      => 'Low',
+            'legend_high'     => 'High',
+            'shift_title'     => 'Shift',
+            'shift_sub'       => 'Active today',
+            'shift_staff'     => 'Staff',
+            'shift_status'    => 'Status',
+            'shift_sales'     => 'Sales',
+            'shift_txns'      => 'Txns',
+            'staff_on'        => 'On',
+            'staff_off'       => 'Off',
+        ],
+
+        'activity' => [
+            'completed_sale' => 'completed a sale for',
+        ],
+
+        // kept for BC
+        'greeting'     => 'Good to see you',
+        'sub'          => 'A quick overview of your POS state.',
+        'stub_heading' => 'Shell scaffold',
+        'stub_body'    => 'Dashboard is being built.',
+    ],
+
+    // Sidebar / command-palette navigation. Labels resolve through these
+    // keys (config/admin-nav.php stores the key; AdminLayout translates),
+    // so the menu translates like everything else.
+    'nav' => [
+        'sections' => [
+            'operations' => 'Operations',
+            'sales'      => 'Sales',
+            'customers'  => 'Customers',
+            'shifts'     => 'Shifts',
+            'products'   => 'Products',
+            'inventory'  => 'Inventory',
+            'purchase & suppliers' => 'Purchase & Suppliers',
+            'reports'    => 'Reports',
+            'accounting' => 'Accounting',
+            'tax management' => 'Tax Management',
+            'user & access management' => 'User & Access Management',
+            'system configuration' => 'System Configuration',
+        ],
+        'items' => [
+            // Operations
+            'dashboard'       => 'Dashboard',
+            'cashier'         => 'POS',
+            'terminals'       => 'Terminals',
+
+            // Sales
+            'sales'              => 'Sales History',
+            'kiosk-orders'       => 'Kiosk orders',
+            'customer-payments'  => 'Customer payments',
+            'return-reasons'     => 'Return reasons',
+
+            // Customers
+            'customers'       => 'Customers',
+            'customer-groups' => 'Customer groups',
+
+            // Shifts
+            'shifts'                 => 'Shift History',
+            'shift-variance-reasons' => 'Cash Mismatch Reasons',
+
+            // Products
+            'products'         => 'Products',
+            'product-labels'   => 'Print labels',
+            'categories'       => 'Categories',
+            'brands'           => 'Brands',
+            'units'            => 'Units',
+            'unit-categories'  => 'Measurement categories',
+
+            // Inventory
+            'stock-adjustments'  => 'Stock adjustments',
+            'stock-takes'        => 'Stock Reconciliation',
+            'stock-transfers'    => 'Stock transfers',
+            'adjustment-reasons' => 'Adjustment reasons',
+            'inventory-reports'  => 'Inventory reports',
+            'stock-levels'       => 'Available Stock',
+            'low-stock'          => 'Low stock',
+            'oversold'           => 'Oversold items',
+            'batches'            => 'Batches & expiry',
+            'stock-movements'    => 'Stock Activity',
+
+            // Purchase & Suppliers
+            'suppliers'          => 'Suppliers',
+            'purchases'          => 'Purchases',
+            'purchase-returns'   => 'Purchase returns',
+            'supplier-payments'  => 'Supplier payments',
+            'expenses'           => 'Expenses',
+            'expense-categories' => 'Expense categories',
+
+            // Reports
+            'reports'                  => 'Reports',
+            'reports-hub'              => 'All reports',
+            'saved-reports'            => 'Saved reports',
+            'scheduled-reports'        => 'Scheduled reports',
+            'sync-log'                 => 'Sync log',
+            'sales-report'             => 'Sales summary',
+            'sales-by-product'         => 'Sales by product',
+            'sales-by-cashier'         => 'Sales by cashier',
+            'sales-by-payment-method'  => 'Sales by payment',
+            'sales-by-category'        => 'Sales by category',
+            'discounts'                => 'Discounts',
+            'top-customers'            => 'Top customers',
+            'top-suppliers'            => 'Top suppliers',
+            'shifts-by-cashier'        => 'Shifts by cashier',
+            'aged-receivables'         => 'Aged receivables',
+            'trial-balance'            => 'Trial balance',
+            'general-ledger'           => 'General ledger',
+            'profit-and-loss'          => 'Profit and loss',
+            'balance-sheet'            => 'Balance sheet',
+            'cash-flow'                => 'Cash flow',
+
+            // Accounting
+            'journal'           => 'Journal',
+            'chart-of-accounts' => 'Chart of accounts',
+            'business-mappings' => 'Business mappings',
+            'fiscal-periods'    => 'Fiscal periods',
+            'opening-balances'  => 'Opening balances',
+
+            // Tax
+            'tax-components'      => 'Tax components',
+            'tax-groups'          => 'Tax groups',
+            'tax-classifications' => 'Tax classifications',
+            'drug-schedules'      => 'Drug Schedules',
+
+            // Users & system
+            'users'         => 'Users',
+            'roles'         => 'Roles',
+            'stores'        => 'Stores',
+            'hardware'      => 'Hardware',
+            'system-health' => 'System Health',
+            'languages'     => 'Languages',
+            'settings'      => 'Settings',
+        ],
+    ],
+];

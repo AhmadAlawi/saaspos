@@ -1,0 +1,73 @@
+/* ============================================================
+   Product batches — admin list (Slice 3b)
+   ============================================================ */
+
+/* Status tabs above the table — quick filter with live counts.
+ * Mirrors the segmented look used elsewhere (cashier layout switcher),
+ * just rendered as anchors so each tab is a full page request. */
+
+.batches-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.batches-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 7px;
+  transition: background .12s, color .12s;
+  text-decoration: none;
+}
+
+.batches-tab:hover {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.batches-tab.is-active {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+.batches-tab-count {
+  display: inline-block;
+  min-width: 22px;
+  padding: 0 6px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--bg-canvas);
+  color: var(--text-tertiary);
+}
+
+.batches-tab.is-active .batches-tab-count {
+  background: color-mix(in srgb, var(--accent-fg) 22%, transparent);
+  color: var(--accent-fg);
+}
+
+/* Sync log payload — readable JSON dump. */
+.sync-log-payload {
+  max-height: 480px;
+  overflow: auto;
+  padding: 12px 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11.5px;
+  line-height: 1.5;
+}

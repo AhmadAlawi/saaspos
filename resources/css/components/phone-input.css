@@ -1,0 +1,108 @@
+/* ============================================================
+   intl-tel-input — re-skin the lib's default chrome so the wrapped
+   input matches `.pos-input` (44px height, border-default token,
+   dark-mode aware, RTL-friendly). The lib's own stylesheet ships
+   first via Vite's CSS pipeline; everything here overrides it.
+   ============================================================ */
+
+.iti {
+  width: 100%;
+}
+
+/* The `.iti__tel-input` is the actual <input>. The lib injects
+   a flag/dialcode trigger ABSOLUTELY positioned over the input's
+   leading edge — we just need to give the input the correct left
+   padding so text doesn't underlap the flag. */
+.iti .iti__tel-input.pos-input {
+  height: 44px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+  width: 100%;
+  /* Library default is ~52px; we want a tighter ~46px so the input
+     visually matches other .pos-input fields when no flag is shown. */
+  padding-inline-start: 50px;
+}
+
+.dark .iti .iti__tel-input.pos-input { background-color: var(--bg-elevated); }
+
+/* Country trigger (flag + dial code + chevron). */
+.iti__country-container {
+  inset-inline-start: 1px;
+  border-inline-end: 1px solid var(--border-default);
+}
+
+.iti__selected-country-primary {
+  height: 42px;
+  padding-inline: 10px 8px;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.iti__selected-country-primary:hover,
+.iti__selected-country-primary:focus {
+  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+}
+
+.iti__arrow {
+  border-top-color: var(--text-secondary);
+}
+
+/* Dropdown panel — match the .tom-select panel for visual consistency
+   (border-default, surface bg, rounded). */
+.iti__dropdown-content {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.iti__search-input {
+  height: 40px;
+  padding-inline: 12px;
+  background: var(--bg-surface);
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.iti__search-input:focus {
+  outline: none;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.iti__country-list {
+  max-height: 280px;
+}
+
+.iti__country {
+  padding-block: 8px;
+  color: var(--text-primary);
+}
+
+.iti__country.iti__highlight {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.iti__dial-code {
+  color: var(--text-tertiary);
+}
+
+/* When the field has the validation-error mark, the same red ring the
+   rest of the system uses should appear around the wrapper. */
+.field.has-error .iti .iti__tel-input.pos-input,
+.field:has(> .field-error) .iti .iti__tel-input.pos-input {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+.iti__country-list
+{
+  max-height: 150px !important;
+}
+/* RTL — the lib flips the country-container automatically because of
+   the inset-inline rules above; nothing extra needed. */

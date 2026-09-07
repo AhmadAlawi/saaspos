@@ -1,0 +1,1272 @@
+/* ============================================================
+   Products — full-page list (table + grid views) + the
+   create/edit form layout. The list lives on /admin/products;
+   the form on /admin/products/create + /products/{id}/edit.
+   ============================================================ */
+
+/* ── Import format guidance (import wizard, step 1) ──────────── */
+.import-guide {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--bg-elevated);
+}
+.import-guide-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.import-guide-list {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  list-style: disc;
+}
+
+/* ── Toolbar row (above the table card) ───────────────────── */
+/* Mirrors design-system/admin/Products.html: search input grows
+   to fill the left, filter pills in the middle, count + view
+   toggle on the right. */
+.prod-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.prod-search {
+  position: relative;
+  flex: 1 1 280px;
+  min-width: 220px;
+  max-width: 420px;
+}
+.prod-search-icon {
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.prod-search input.pos-input {
+  padding-inline-start: 36px;
+}
+
+.prod-toolbar-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.prod-toolbar-end {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.prod-toolbar-count {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Filter pill (rounded chip, toggles via .is-active) ──── */
+.filter-pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+.filter-pill:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.filter-pill.is-active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.filter-pill:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.filter-pill-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+
+/* ── List table ───────────────────────────────────────────── */
+/* Mirrors design-system/admin/styles.css `.table` rules. The sticky
+   <thead> requires every ancestor up to the viewport to NOT clip
+   overflow — the `.card.card-pad-0 { overflow: visible }` rule in
+   cards.css handles that for table-mode cards. */
+.dt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.dt-table thead th {
+  text-align: start;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-default);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  white-space: nowrap;
+  /* Drop shadow under the sticky header so rows scrolling past get
+     a subtle visual separation — matches design-system. */
+  box-shadow: 0 1px 0 0 var(--border-default), 0 4px 8px -6px rgba(0,0,0,0.5);
+}
+:root.light .dt-table thead th {
+  box-shadow: 0 1px 0 0 var(--border-default), 0 4px 8px -6px rgba(0,0,0,0.08);
+}
+.dt-table thead th.num { text-align: end; }
+
+.dt-table tbody tr {
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+.dt-table tbody tr:hover { background: var(--bg-hover); }
+
+.dt-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+.dt-table tbody tr:last-child td { border-bottom: none; }
+.dt-table tbody td.num { text-align: end; font-variant-numeric: tabular-nums; }
+.dt-table tbody td.mono { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+
+.dt-table tfoot tr { background: var(--bg-elevated); }
+.dt-table tfoot td {
+  padding: 10px 14px;
+  border-top: 2px solid var(--border-default);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.dt-table tfoot td.num { text-align: end; font-variant-numeric: tabular-nums; }
+
+/* ── Product-specific row bits ────────────────────────────── */
+.prod-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.prod-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.prod-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.prod-thumb-letter {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.prod-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.prod-sub {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prod-muted { color: var(--text-tertiary); }
+
+.prod-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Margin coloring — mirrors design-system thresholds. */
+.prod-margin-positive { color: #10B981; font-weight: 600; }
+.prod-margin-danger   { color: var(--danger); font-weight: 600; }
+
+/* Status badge. */
+.prod-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.prod-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.prod-badge-positive {
+  background: color-mix(in srgb, #10B981 12%, transparent);
+  color: #10B981;
+}
+.prod-badge-warning {
+  background: color-mix(in srgb, #F59E0B 12%, transparent);
+  color: #D97706;
+}
+.dark .prod-badge-warning { color: #F59E0B; }
+.prod-badge-negative {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+.prod-badge-muted {
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+}
+
+/* Product-type badge — surfaces simple / variant / kit at a glance in
+   both the table and grid. Variant/kit also show their count. */
+.prod-type-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: middle;
+  margin-inline-start: 6px;
+}
+.prod-type-badge.is-simple {
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+}
+.prod-type-badge.is-variant {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+.prod-type-badge.is-kit {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+}
+
+/* Table "Type" column — plain colour-coded text (no pill), so it reads
+   as a column value rather than a status badge. */
+.prod-type-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.prod-type-text.is-simple  { color: var(--text-secondary); }
+.prod-type-text.is-variant { color: var(--accent); }
+.prod-type-text.is-kit     { color: var(--warning); }
+
+/* ── Grid view ────────────────────────────────────────────── */
+/* Dense grid — 10 cards per row on wide screens, stepping down responsively
+   so cards never get unusably narrow on smaller viewports. */
+.prod-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1400px) { .prod-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .prod-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+@media (max-width: 820px)  { .prod-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 480px)  { .prod-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+/* Bottom marker the infinite-scroll observer watches. */
+.prod-grid-sentinel { height: 1px; }
+
+.prod-card {
+  display: block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.prod-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-pop);
+}
+.prod-card:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.prod-card-img {
+  aspect-ratio: 4 / 3;
+  background: var(--bg-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.prod-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.prod-card-letter {
+  width: 56px; height: 56px;
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 22px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* The letter is the fallback for a missing/broken image. `.prod-card-letter`
+   sets display:flex, which (same specificity, later in source) was beating
+   the utility `.hidden` — so the placeholder showed *alongside* the image.
+   This compound selector wins and keeps it hidden until the <img> onerror
+   sets an inline display to reveal it. */
+.prod-card-letter.hidden { display: none; }
+
+.prod-card-body { padding: 12px; }
+.prod-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.prod-card-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 auto;
+}
+.prod-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.prod-card-sku {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+/* In the grid meta row the badge sits flush-right; no inline offset. */
+.prod-card-meta .prod-type-badge {
+  margin-inline-start: 0;
+}
+.prod-card-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.prod-card-price {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.prod-card-cost { font-size: 11px; }
+.prod-card-price-was {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  margin-right: 4px;
+}
+
+/* ── Row-level quick actions (status + featured) ─────────── */
+/* Sits in the last column of each row. Both buttons are inline
+   and use @click.stop to prevent the row's click-to-edit. */
+.prod-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Quiet icon action buttons in a table row — featured star, set-default.
+   Accent-tinted on hover. */
+.prod-fav-btn,
+.prod-default-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 100ms ease, color 100ms ease;
+  position: relative;
+  z-index: 1;
+}
+.prod-fav-btn:hover,
+.prod-default-btn:hover { background: var(--bg-elevated); color: var(--accent); }
+.prod-fav-btn:disabled,
+.prod-default-btn:disabled { opacity: 0.6; cursor: progress; }
+.prod-fav-btn.is-on { color: var(--accent); }
+.prod-fav-btn.is-on svg { fill: var(--accent); }
+
+/* Row delete button — quiet by default, danger-tinted on hover.
+   Shared by every list table (products, stores, …). */
+.prod-del-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 100ms ease, color 100ms ease;
+  position: relative;
+  z-index: 1;
+}
+.prod-del-btn:hover { background: var(--danger-soft); color: var(--danger); }
+.prod-del-btn:disabled { opacity: 0.6; cursor: progress; }
+
+/* Status toggle pill — same shape as cat-row-toggle but reused.
+   Clicking flips is_active without navigating to the editor. */
+.prod-status-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  padding: 0;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+  position: relative;
+  z-index: 1;
+}
+.prod-status-btn:hover { border-color: var(--accent); }
+.prod-status-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.prod-status-btn:disabled { opacity: 0.6; cursor: progress; }
+.prod-status-thumb {
+  display: block;
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+  transition: transform 140ms cubic-bezier(.4,0,.2,1), background 120ms ease;
+}
+.prod-status-btn.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.prod-status-btn.is-on .prod-status-thumb {
+  background: #fff;
+  transform: translateX(16px);
+}
+[dir="rtl"] .prod-status-btn.is-on .prod-status-thumb {
+  transform: translateX(-16px);
+}
+
+/* Inline "Featured" pill next to the product name. */
+.prod-featured-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+  padding: 0 6px;
+  margin-inline-start: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* ── Editor — KPI boxes under Price & cost card ────────────── */
+/* Three mini-tiles showing Margin / Markup / Profit-per-unit.
+   Values are computed reactively by the productEditor factory. */
+.prod-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+.prod-kpi-box {
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.prod-kpi-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.prod-kpi-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  margin-top: 4px;
+}
+
+/* ── Editor — header status badge ──────────────────────────── */
+/* Sits next to the product name. Reactive: bound to isActive /
+   isFeatured in the productEditor factory so it follows the form
+   without a reload. */
+.prod-head-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 11px;
+  font-weight: 500;
+  vertical-align: middle;
+  margin-inline-start: 8px;
+}
+.prod-head-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.prod-head-badge-positive {
+  background: color-mix(in srgb, #10B981 12%, transparent);
+  color: #10B981;
+}
+.prod-head-badge-muted {
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+}
+
+/* ── Reporting placeholder card (Pricing tab right column) ── */
+.prod-report-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  text-align: center;
+}
+.prod-report-value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+.prod-report-note {
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* Money-input styles moved to resources/css/components/forms.css
+   (`.pos-money`) so the <x-admin.money-input> component is reusable
+   app-wide, not just on product pages. */
+
+/* ── Variants tab ─────────────────────────────────────────── */
+.prod-variants-empty {
+  padding: 40px 24px;
+  text-align: center;
+}
+.prod-variants-empty-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin: 0 auto 10px;
+}
+.prod-variants-empty-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.prod-variants-empty-sub   { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+.prod-variants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Each variant row sits in a softly-tinted block so the eye can group
+   its fields together. The 6-cell grid keeps Label / SKU / Barcode /
+   Selling / Cost / Actions readable on desktop; collapses to single
+   column on narrow viewports. */
+.prod-variant-row {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Always-visible header — chevron + combo title + SKU/price summary +
+   Active toggle. The whole bar is the collapse hit-target. */
+.prod-variant-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  cursor: pointer;
+  user-select: none;
+}
+.prod-variant-row:not(.is-collapsed) .prod-variant-head {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.prod-variant-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+.prod-variant-row.is-collapsed .prod-variant-chevron {
+  transform: rotate(-90deg);
+}
+:where([dir="rtl"]) .prod-variant-row.is-collapsed .prod-variant-chevron {
+  transform: rotate(90deg);
+}
+.prod-variant-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.prod-variant-head-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+.prod-variant-head-sub {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.prod-variant-head-active {
+  flex-shrink: 0;
+}
+.prod-variant-body {
+  padding: 14px;
+}
+.prod-variant-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 1024px) {
+  .prod-variant-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .prod-variant-grid {
+    grid-template-columns: 1fr;
+  }
+  .prod-variant-head {
+    flex-wrap: wrap;
+  }
+  .prod-variant-head-active {
+    width: 100%;
+    padding-inline-start: 36px;
+  }
+}
+
+/* Read-only combination label inside a variant row (e.g. "Red · S"). */
+.prod-variant-combo {
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 8px 0;
+  font-size: 13.5px;
+}
+
+/* Variant-product price note shown on the Pricing tab in place of the
+   parent price card. */
+.prod-variant-price-note {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Attribute builder — one row per attribute (name + value chips + remove).
+   Columns bottom-align so the name input, values box, and remove button
+   share a baseline regardless of how many value chips wrap. */
+.prod-attr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prod-attr-row {
+  display: grid;
+  grid-template-columns: minmax(0, 200px) minmax(0, 1fr) 40px;
+  gap: 14px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+@media (max-width: 768px) {
+  .prod-attr-row {
+    grid-template-columns: 1fr;
+  }
+  .prod-attr-remove {
+    justify-self: start;
+  }
+}
+/* Icon-only remove button — matches .prod-variant-delete (quiet ghost). */
+.prod-attr-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.prod-attr-remove:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+/* The values box is an INPUT control — mirror `.pos-input` exactly
+   (surface, border, radius, height, focus ring) so it reads as the
+   same field type as the attribute name beside it. */
+.prod-attr-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  min-height: 44px;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+.dark .prod-attr-values { background-color: var(--bg-elevated); }
+.prod-attr-values:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.prod-attr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.prod-attr-chip-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--accent);
+  background: transparent;
+  cursor: pointer;
+}
+.prod-attr-chip-x:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.prod-attr-value-input {
+  flex: 1 1 140px;
+  min-width: 120px;
+  height: 28px;
+  border: 0 !important;
+  background: transparent !important;
+  padding-inline: 4px !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Per-variant store-price overrides — a nested panel under each variant
+   row. Header row labels the three money columns; one data row per store. */
+/* The overrides sit as a sub-section of the variant body (no inset
+   padding) so its column grid lines up exactly with the body grid
+   above — Store under SKU, Selling under Barcode, etc. */
+.prod-variant-stores {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+/* Collapse toggle (the section title is the hit-target). */
+.prod-variant-stores-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.prod-variant-stores.is-collapsed .prod-variant-stores-toggle {
+  margin-bottom: 0;
+}
+.prod-variant-stores-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  transition: transform 150ms ease;
+}
+.prod-variant-stores.is-collapsed .prod-variant-stores-chevron {
+  transform: rotate(-90deg);
+}
+:where([dir="rtl"]) .prod-variant-stores.is-collapsed .prod-variant-stores-chevron {
+  transform: rotate(90deg);
+}
+.prod-variant-stores-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+}
+.prod-variant-stores-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+/* Store grid mirrors the body grid (4 equal columns, gap 12) so the
+   inputs line up vertically with SKU / Barcode / Selling / Cost. */
+/* 5 columns to mirror the body grid (SKU · Barcode · Selling · Cost ·
+   MRP). The store name spans the first two so the three money inputs
+   line up under Selling / Cost / MRP above. */
+.prod-variant-store-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.prod-variant-store-row:last-child {
+  margin-bottom: 0;
+}
+.prod-variant-store-head > div {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-tertiary);
+}
+.prod-variant-store-head > div:first-child,
+.prod-variant-store-name {
+  grid-column: span 2;
+}
+.prod-variant-store-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+@media (max-width: 768px) {
+  .prod-variant-store-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .prod-variant-store-name {
+    grid-column: 1 / -1;
+  }
+  /* Captions don't map to a 2-col stack — hide them; the
+     "Blank = inherit" placeholders still convey meaning. */
+  .prod-variant-store-head {
+    display: none;
+  }
+}
+
+/* Header delete button — quiet until hovered, then danger-tinted. */
+.prod-variant-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.prod-variant-delete:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+/* Collapse-all / expand-all chevron flips between the two states. */
+.prod-collapse-all-icon {
+  display: inline-flex;
+  transition: transform 150ms ease;
+}
+.prod-collapse-all-icon.is-up {
+  transform: rotate(180deg);
+}
+
+/* Kit component row — its own block (NOT .prod-variant-row, which is
+   overflow:hidden for the collapse animation and would clip the
+   TomSelect dropdown). Padded like a normal card body, overflow visible
+   so the searchable product dropdown can escape the row. */
+.prod-kit-row {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 14px;
+  overflow: visible;
+}
+
+/* Kit row grid — Component (wide) / Variant / Quantity / Actions.
+   Drops to two columns on narrow viewports so the Component picker
+   still has room to breathe alongside the Quantity input. */
+.prod-kit-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 0.8fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 1024px) {
+  .prod-kit-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .prod-kit-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* Delete button column — 44 px so it aligns with the bottom of the
+   adjacent inputs (grid already has align-items:end). */
+.prod-kit-actions {
+  display: flex;
+  align-items: center;
+  height: 44px;
+}
+
+/* Live components total under the kit rows — basis for the auto price. */
+.prod-kit-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+.prod-kit-total-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-tertiary);
+}
+.prod-kit-total-values {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.prod-kit-total-values strong { color: var(--text-primary); }
+.prod-kit-total-sep { color: var(--border-default); }
+
+/* Kit auto-pricing note on the Pricing tab. */
+.prod-kit-price-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.prod-kit-recalc {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+}
+.prod-kit-price-sum {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* CSV / XLSX import wizard. Two two-column table layouts (column-map
+   + sample-rows) plus a small counts strip on the "done" page. Kept
+   minimal — the wizard runs end-to-end on the existing card styling. */
+.prod-import-map {
+  width: 100%;
+  border-collapse: collapse;
+}
+.prod-import-map thead th {
+  text-align: start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.prod-import-map tbody td {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+.prod-import-map tbody tr:last-child td {
+  border-bottom: 0;
+}
+.prod-import-header {
+  font-weight: 600;
+  color: var(--text-primary);
+  width: 40%;
+}
+.prod-import-preview-wrap {
+  overflow-x: auto;
+}
+.prod-import-preview {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.prod-import-preview th,
+.prod-import-preview td {
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.prod-import-preview th {
+  background: var(--bg-elevated);
+  text-align: start;
+  font-weight: 600;
+}
+
+.prod-import-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.prod-import-count {
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+.prod-import-count.is-positive {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border-subtle));
+}
+.prod-import-count.is-warning {
+  border-color: color-mix(in srgb, var(--warning) 35%, var(--border-subtle));
+}
+.prod-import-count-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.prod-import-count-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.prod-import-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.prod-import-errors li {
+  display: flex;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
+}
+.prod-import-error-row {
+  font-weight: 600;
+  color: var(--danger);
+  min-width: 60px;
+}
+
+/* Per-store pricing card — one COLLAPSIBLE block per store (mirrors the
+   variant card pattern): a clickable header (store name + code) and a
+   body with the three money inputs. */
+.prod-store-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prod-store-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+.prod-store-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+}
+.prod-store-block:not(.is-collapsed) .prod-store-head {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.prod-store-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: transform 150ms ease;
+}
+.prod-store-block.is-collapsed .prod-store-chevron {
+  transform: rotate(-90deg);
+}
+:where([dir="rtl"]) .prod-store-block.is-collapsed .prod-store-chevron {
+  transform: rotate(90deg);
+}
+.prod-store-head-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+.prod-store-head-code {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+.prod-store-body {
+  padding: 14px;
+}
+.prod-store-price-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 768px) {
+  .prod-store-price-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tab strip count badge — small chip next to "Variants" showing how
+   many child SKUs the editor currently has. */
+.prod-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-inline-start: 4px;
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tab.is-active .prod-tab-count {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}

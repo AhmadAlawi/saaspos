@@ -1,0 +1,214 @@
+/* ============================================================
+   Units — same two-column master-detail layout as Brands.
+   Adds a small category pill in the row meta + a base/derived
+   conversion hint.
+   ============================================================ */
+
+.unit-list { list-style: none; padding: 0; margin: 0; }
+
+.unit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  transition: background 100ms ease;
+}
+.unit-list > li:last-child .unit-row { border-bottom: none; }
+.unit-row:hover { background: var(--bg-hover); }
+
+.unit-row.is-selected { background: var(--bg-hover); }
+.unit-row.is-selected::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2.5px;
+  background: var(--accent);
+}
+
+.unit-row-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.unit-row-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+.unit-row-toggle {
+  position: relative;
+  z-index: 1;
+}
+
+.unit-tile {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 11.5px;
+  flex-shrink: 0;
+  padding: 0 4px;
+  text-transform: lowercase;
+}
+.unit-tile-lg {
+  width: 48px; height: 48px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.unit-row-body { flex: 1; min-width: 0; line-height: 1.3; }
+.unit-row-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.unit-row-meta {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.unit-row-meta .sep { margin-inline: 6px; }
+
+.unit-row-tag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+.unit-row-tag-base {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+/* ── Status toggle (shared shape with .cat-row-toggle) ──────── */
+.unit-row-toggle {
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  padding: 0;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.unit-row-toggle:hover { border-color: var(--accent); }
+.unit-row-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.unit-row-toggle:disabled { opacity: 0.6; cursor: progress; }
+
+.unit-row-toggle-thumb {
+  display: block;
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+  transition: transform 140ms cubic-bezier(.4,0,.2,1), background 120ms ease;
+}
+.unit-row-toggle.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.unit-row-toggle.is-on .unit-row-toggle-thumb {
+  background: #fff;
+  transform: translateX(16px);
+}
+[dir="rtl"] .unit-row-toggle.is-on .unit-row-toggle-thumb {
+  transform: translateX(-16px);
+}
+
+.unit-row.is-inactive .unit-row-name,
+.unit-row.is-inactive .unit-row-meta {
+  opacity: 0.55;
+}
+
+/* ── List empty state ───────────────────────────────────────── */
+.unit-empty { padding: 48px 24px; text-align: center; }
+.unit-empty-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+}
+.unit-empty-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.unit-empty-sub {
+  font-size: 12px; color: var(--text-tertiary);
+  margin-top: 6px; max-width: 280px; margin-inline: auto; line-height: 1.5;
+}
+
+/* ── Right-column editor ────────────────────────────────────── */
+.unit-editor { position: sticky; top: 16px; }
+.unit-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.unit-editor-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.unit-editor-id   { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+.unit-editor-id .mono { font-family: var(--font-mono); }
+
+.unit-editor-empty { padding: 40px 24px; text-align: center; }
+.unit-editor-empty-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin: 0 auto 10px;
+}
+.unit-editor-empty-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.unit-editor-empty-sub   { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+.unit-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 14px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}

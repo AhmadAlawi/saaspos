@@ -1,0 +1,27 @@
+/* ============================================================
+   Users list + form — identity cell, store-access chips, access rows.
+   ============================================================ */
+
+.user-row-id { display: inline-flex; align-items: center; gap: 10px; }
+.user-row-name { font-weight: 600; color: var(--text-primary); }
+.user-row-email { font-size: 11.5px; color: var(--text-tertiary); }
+
+.user-store-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.user-store-chip {
+  display: inline-flex; align-items: center;
+  height: 20px; padding-inline: 8px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.user-status-cell { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Repeatable store + role assignment rows in the form. */
+.user-access-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}

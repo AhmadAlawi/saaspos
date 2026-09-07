@@ -1,0 +1,335 @@
+/* ============================================================
+   Data-table — toolbar (search) + pager (page nav) + state.
+
+   Pairs with resources/js/admin/data-table.js. The JS hides rows
+   by adding `.dt-hidden`; everything else here is UI scaffolding
+   shared across every list/table screen.
+   ============================================================ */
+
+/* ── Horizontal-scroll wrapper around the table/list slot ─────
+   The Option-B responsive baseline: wide tables scroll within the
+   card on narrow screens rather than blowing out the page width.
+   `-webkit-overflow-scrolling: touch` gives momentum scroll on iOS. */
+.dt-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+/* On phones, stop cells from wrapping so the table keeps its natural
+   width and scrolls horizontally (the readable pattern) instead of
+   squashing columns into ragged multi-line text. Tables narrower than
+   the viewport still fit with no scrollbar. */
+@media (max-width: 640px) {
+  .dt-scroll > .dt-table th,
+  .dt-scroll > .dt-table td { white-space: nowrap; }
+}
+
+/* Editable line-item tables (purchase edit / refund / purchase return)
+   carry many input columns and sit in constrained form layouts. Give
+   them a readable min-width so they scroll inside .dt-scroll on narrow
+   screens (phones AND tablet-width form columns) instead of squashing
+   columns into stacked, unreadable text. */
+.dt-scroll > .dt-table--lines { min-width: 620px; }
+
+/* ── Toolbar row that sits at the top of a list card ────────── */
+.dt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.dt-toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+
+/* Search box — leading magnifier icon, narrow input on the right
+   side of the toolbar. */
+.dt-search {
+  position: relative;
+  flex: 1;
+  max-width: 320px;
+}
+.dt-search-icon {
+  position: absolute;
+  inset-inline-start: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.dt-search input {
+  width: 100%;
+  height: 32px;
+  padding-inline: 32px 32px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.dt-search input::placeholder { color: var(--text-tertiary); }
+.dt-search input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.dt-search-clear {
+  position: absolute;
+  inset-inline-end: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; background: transparent;
+  color: var(--text-tertiary);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+.dt-search-clear:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+/* Right-aligned info chunk in the toolbar (count, hint, etc). */
+.dt-toolbar-info {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+/* Refresh + sort controls — always at the end of the toolbar. */
+.dt-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+.dt-sort-wrap { position: relative; }
+.dt-sort-menu {
+  inset-inline-start: auto !important;
+  inset-inline-end: 0 !important;
+  min-width: 170px;
+}
+.dt-sort-label { font-size: 12px; }
+
+/* Spin animation for the refresh button while an AJAX fetch is in flight. */
+@keyframes dt-spin { to { transform: rotate(360deg); } }
+.dt-spin { animation: dt-spin 0.7s linear infinite; }
+
+/* ── Row hide / empty state ─────────────────────────────────── */
+.dt-hidden { display: none !important; }
+
+.dt-empty {
+  padding: 48px 24px;
+  text-align: center;
+}
+.dt-empty-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin: 0 auto 10px;
+}
+.dt-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.dt-empty-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+
+/* ── Pager — sits at the bottom of the list card ────────────── */
+/* Mirrors design-system/admin/Products.html: "Showing X to Y of Z"
+   on the start side, Prev + numbered page buttons + Next on the end. */
+.dt-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.dt-pager-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Phones: the single-row pager (page-size · "Showing x–y of z" · page
+   buttons) is too wide. Stack it into two centred rows and let the page
+   buttons wrap rather than overflow the card. */
+@media (max-width: 640px) {
+  .dt-pager {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .dt-pager-info { justify-content: center; flex-wrap: wrap; }
+  .dt-pager-nav { flex-wrap: wrap; justify-content: center; }
+}
+.dt-pager-sep { color: var(--border-default); }
+
+/* Ellipsis slot in the windowed pager (1 … 42 43 44 … 755). Rendered as a
+   disabled button so the x-for stays one template; styled down to plain
+   text so it reads as a gap rather than a control. `opacity` overrides the
+   0.65 that `.pos-btn:disabled` would otherwise wash it out with. */
+.dt-pager-nav .pos-btn.is-gap {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+  pointer-events: none;
+  min-width: 0;
+  padding-inline: 2px;
+  opacity: 1;
+}
+
+/* The page you're on. Explicit class rather than "the one without
+   .pos-btn-ghost" — a highlight you can see at a glance, and one that can't
+   silently disappear if the ghost binding ever mis-evaluates. */
+.dt-pager-nav .pos-btn.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.dt-pager-nav .pos-btn.is-active:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+}
+
+/* Compact page-size dropdown that sits in the pager info row. */
+/* Custom page-size dropdown — a styled trigger + system menu so the open
+   list matches our design language (a native <select>'s option list can't
+   be themed). Markup in <x-admin.data-table>; state in the data-table mixin. */
+.dt-page-size-wrap { position: relative; }
+
+.dt-page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-inline: 10px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.dark .dt-page-size { background: var(--bg-elevated); }
+.dt-page-size:hover { border-color: var(--accent); }
+.dt-page-size.is-open,
+.dt-page-size:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.dt-page-size-chev { display: inline-flex; color: var(--text-tertiary); transition: transform 140ms ease; }
+.dt-page-size.is-open .dt-page-size-chev { transform: rotate(180deg); }
+
+/* Opens upward — the pager sits at the bottom of the table. */
+.dt-page-size-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  inset-inline-start: 0;
+  min-width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: var(--shadow-pop);
+  padding: 4px;
+  z-index: 100;
+}
+.dark .dt-page-size-menu { background: var(--bg-elevated); }
+
+.dt-page-size-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  height: 30px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: start;
+  cursor: pointer;
+  transition: background 100ms ease;
+}
+.dt-page-size-opt:hover { background: var(--bg-hover); }
+.dt-page-size-opt.is-active { background: var(--bg-hover); font-weight: 600; }
+.dt-page-size-check { display: inline-flex; color: var(--accent); }
+.dt-pager-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* The active page button uses solid `.pos-btn` styling; siblings use
+   `.pos-btn-ghost` (see Blade). No extra rules needed here. */
+
+/* ── Drag-frozen state ──────────────────────────────────────── */
+/* When the data-table is filtered or paged the handle is hidden,
+   making it visually clear that drag-to-reorder is not available
+   in this view. The JS also disables the Sortable instance. */
+.dt-frozen .cat-handle { visibility: hidden; pointer-events: none; }
+
+/* ── Sortable column header ─────────────────────────────────── */
+/* Pairs with sortBy(col) / sortDirFor(col) on the data-table mixin.
+   Usage:
+     <th class="dt-th-sort"
+         @click="sortBy('name')"
+         :class="{
+             'is-sorted-asc':  sortDirFor('name') === 'asc',
+             'is-sorted-desc': sortDirFor('name') === 'desc',
+         }">
+       Name <span class="dt-th-sort-arrow" aria-hidden="true"></span>
+     </th>
+
+   Each row supplies the value via a `data-dt-{col}` attribute:
+     <tr data-dt-row data-dt-name="Coca-Cola" data-dt-stock="42">…</tr>
+   The mixin compares values numerically if both sides parse, else
+   it falls back to localeCompare. */
+.dt-th-sort {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.dt-th-sort:hover { color: var(--text-primary); }
+.dt-th-sort-arrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-inline-start: 6px;
+  vertical-align: middle;
+  border-inline: 4px solid transparent;
+  border-bottom: 5px solid currentColor;
+  opacity: 0.25;
+  transition: opacity 100ms ease, transform 120ms ease;
+}
+.dt-th-sort:hover .dt-th-sort-arrow { opacity: 0.6; }
+.dt-th-sort.is-sorted-asc .dt-th-sort-arrow,
+.dt-th-sort.is-sorted-desc .dt-th-sort-arrow {
+  opacity: 1;
+  color: var(--accent);
+}
+.dt-th-sort.is-sorted-desc .dt-th-sort-arrow {
+  transform: rotate(180deg);
+}

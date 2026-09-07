@@ -1,0 +1,421 @@
+/* ============================================================
+   Admin sidebar — brand, nav, footer, mobile drawer, scrim
+   ============================================================ */
+
+.admin-sidebar {
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  min-height: 0;
+  grid-column: 1;
+  width: var(--sb-w-expanded);
+  transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              transform 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 30;
+}
+
+/* Collapsed (icon-rail) */
+body.sb-collapsed .admin-sidebar { width: var(--sb-w-collapsed); }
+
+/* Flyout: collapsed in layout, expanded as overlay */
+body.sb-flyout .admin-sidebar {
+  width: var(--sb-w-expanded);
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  box-shadow: var(--shadow-pop);
+  border-right-color: var(--border-default);
+}
+
+/* ---- Brand row ------------------------------------------------- */
+.brand {
+  display: flex; align-items: center; gap: 4px;
+  padding: 0 12px 0 14px;
+  height: var(--topbar-h);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.brand-link {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0;
+  text-decoration: none;
+  border-radius: 8px;
+  /* padding: 6px 4px; */
+  margin-left: 20%;
+  transition: background 120ms ease;
+}
+.brand-link:hover { background: var(--bg-hover); }
+.brand .mark {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--accent); color: var(--accent-fg);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13.5px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(249,115,22,0.3);
+}
+/* ── Expanded-sidebar content wrapper ───────────────────────────
+   x-show manages visibility (inline display:none beats CSS + dark:block).
+   This rule just sets the layout when the element IS visible. */
+.brand-expanded {
+  display: flex; align-items: center; gap: 10px;
+  min-width: 0; flex: 1;
+}
+
+/* ── Collapsed-sidebar content wrapper ──────────────────────────
+   x-show manages visibility. Layout when visible. */
+.brand-collapsed {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%;
+}
+
+/* ── Full logo (inside .brand-expanded) ─────────────────────── */
+.brand-expanded .brand-logo {
+  height: 35px;
+  /* When no brand-text is shown (full logo upload) the logo can
+     fill most of the brand-link; cap at 140px for wide sidebars. */
+  flex: 0 1 80%;
+  max-width: 140px;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 6px;
+}
+[dir="rtl"] .brand-expanded .brand-logo { object-position: right center; }
+
+/* ── Half / icon logo (inside .brand-collapsed) ─────────────── */
+.brand-collapsed img {
+  height: 30px; width: 30px;
+  object-fit: contain; object-position: center;
+  border-radius: 6px;
+}
+
+/* Brand text fills remaining space; both lines truncate with ellipsis. */
+.brand-text {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.2;
+  overflow: hidden;
+}
+.brand .name { font-weight: 600; font-size: 13px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand .sub  { font-size: 11px; color: var(--text-tertiary); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Sidebar collapse toggle (desktop) */
+.sidebar-toggle {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  border: 1px solid transparent;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.sidebar-toggle:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-subtle); }
+.sidebar-toggle .ico-expand { display: none; }
+body.sb-collapsed .admin-sidebar .sidebar-toggle .ico-collapse,
+body.sb-flyout    .admin-sidebar .sidebar-toggle .ico-collapse { display: none; }
+body.sb-collapsed .admin-sidebar .sidebar-toggle .ico-expand,
+body.sb-flyout    .admin-sidebar .sidebar-toggle .ico-expand { display: inline-flex; }
+
+/* Mobile-only close button (hidden on desktop) */
+.sidebar-close-mobile { display: none; }
+
+/* Collapsed: centre the brand-link + hide the toggle button */
+body.sb-collapsed .admin-sidebar .brand { justify-content: center; padding: 0 8px; }
+body.sb-collapsed .admin-sidebar .brand-link { justify-content: center; padding: 6px; margin-left: 0; }
+body.sb-collapsed .admin-sidebar .sidebar-toggle { display: none; }
+
+/* ---- Nav ------------------------------------------------------- */
+.nav-scroll {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 12px 10px;
+  scrollbar-gutter: stable;
+}
+.nav-scroll::-webkit-scrollbar { width: 8px; }
+.nav-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; transition: background 150ms ease; }
+.admin-sidebar:hover .nav-scroll::-webkit-scrollbar-thumb { background: var(--border-default); }
+/* Firefox */
+.nav-scroll { scrollbar-color: transparent transparent; transition: scrollbar-color 150ms ease; }
+.admin-sidebar:hover .nav-scroll { scrollbar-color: var(--border-default) transparent; }
+
+.nav-group { margin-bottom: 14px; }
+.nav-group:last-child { margin-bottom: 0; }
+.nav-section {
+  padding: 6px 10px 4px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  white-space: nowrap; overflow: hidden;
+  display: flex; align-items: center;
+  height: 24px;
+}
+.nav-section span { transition: opacity 160ms ease; }
+.nav-items { display: flex; flex-direction: column; gap: 1px; }
+
+.nav-item {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  height: 34px; padding: 0 10px;
+  border-radius: 7px;
+  color: var(--text-secondary);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.nav-item.is-active { background: var(--bg-elevated); color: var(--text-primary); }
+.nav-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: -10px; top: 8px; bottom: 8px;
+  width: 2.5px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+.nav-item.is-active .nav-ico { color: var(--accent); }
+.nav-item .nav-ico { color: var(--text-tertiary); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 18px; }
+.nav-item .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.nav-item .nav-count {
+  margin-left: auto;
+  font-size: 10.5px;
+  background: var(--bg-elevated); color: var(--text-tertiary);
+  padding: 1px 6px; border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+}
+.nav-item.is-active .nav-count {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: transparent;
+}
+.nav-item .nav-alert {
+  margin-left: auto;
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--warning);
+  box-shadow: 0 0 0 3px var(--warning-soft);
+  flex-shrink: 0;
+}
+
+/* ---- Collapsible sub-group (Catalog setup, Inventory reports, …) -----
+   Sections themselves stay flat — only the read-only / configure-once tails
+   nest into one of these. Height is driven by the navGroup Alpine component
+   (0 ↔ scrollHeight ↔ auto); the 0 default here keeps a closed group closed
+   before Alpine boots, so there's no flash of expanded content. */
+.nav-subgroup { display: flex; flex-direction: column; gap: 1px; }
+
+.nav-item--group {
+  width: 100%;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.nav-item--group.is-open { color: var(--text-primary); }
+.nav-item--group .nav-grp-chev {
+  display: inline-flex;
+  color: var(--text-tertiary);
+  margin-inline-start: auto;
+  transition: transform 180ms ease;
+}
+/* Down-chevron → up-chevron. Mirror-safe, so no RTL override needed. */
+.nav-item--group.is-open .nav-grp-chev { transform: rotate(180deg); }
+
+.nav-subgroup-body {
+  height: 0;
+  overflow: hidden;
+  transition: height 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.nav-subgroup-body .nav-items {
+  position: relative;
+  padding-inline-start: 14px;
+  margin-top: 1px;
+}
+.nav-subgroup-body .nav-items::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 6px;
+  top: 4px; bottom: 4px;
+  width: 1.5px;
+  background: var(--border-default);
+  border-radius: 2px;
+}
+.nav-item--child { height: 31px; font-size: 12.5px; }
+/* The active bar would collide with the tree line at this indent — an active
+   child reads from its background + accent icon instead. */
+.nav-item--child.is-active::before { display: none; }
+
+/* Collapsed: icons only + tooltips */
+body.sb-collapsed .admin-sidebar .nav-scroll { padding: 12px 8px; }
+body.sb-collapsed .admin-sidebar .nav-section {
+  height: 8px; padding: 0; margin-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+body.sb-collapsed .admin-sidebar .nav-section:first-child { border-top: none; margin-top: 0; height: 4px; }
+body.sb-collapsed .admin-sidebar .nav-section span { opacity: 0; }
+body.sb-collapsed .admin-sidebar .nav-item {
+  width: 44px; height: 38px;
+  margin: 0 auto;
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
+body.sb-collapsed .admin-sidebar .nav-item.is-active::before {
+  left: -8px; top: 10px; bottom: 10px;
+}
+body.sb-collapsed .admin-sidebar .nav-label,
+body.sb-collapsed .admin-sidebar .nav-count { display: none; }
+body.sb-collapsed .admin-sidebar .nav-item .nav-alert {
+  position: absolute; right: 6px; top: 8px;
+  margin: 0;
+}
+/* Icon rail: the group row keeps its icon (+ tooltip); the chevron and the
+   child tree-line have no room, so children read as a plain icon run. */
+body.sb-collapsed .admin-sidebar .nav-item--group .nav-grp-chev { display: none; }
+body.sb-collapsed .admin-sidebar .nav-subgroup-body .nav-items { padding-inline-start: 0; }
+body.sb-collapsed .admin-sidebar .nav-subgroup-body .nav-items::before { display: none; }
+
+/* Shared tooltip for collapsed nav items. Rendered ONCE as a sibling of
+   .nav-scroll so it escapes the scroll container's clipping. Positioned
+   dynamically via the --tip-y CSS variable bound from JS on hover. */
+.nav-tooltip {
+  position: absolute;
+  left: 100%;
+  top: var(--tip-y, 0px);
+  transform: translate(12px, -50%);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 100;
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 100ms ease, visibility 0s linear 100ms;
+}
+.nav-tooltip.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 100ms ease;
+}
+/* Only show in collapsed mode (and not when mobile drawer is open). */
+body:not(.sb-collapsed) .nav-tooltip,
+body.sb-mobile-open .nav-tooltip { display: none; }
+
+/* Tooltip on the brand link when collapsed — still uses ::after because
+   .brand is OUTSIDE .nav-scroll so the overflow-clipping doesn't apply. */
+body.sb-collapsed .admin-sidebar .brand-link { position: relative; }
+body.sb-collapsed .admin-sidebar .brand-link::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: calc(100% + 12px); top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 100ms ease, transform 100ms ease;
+  box-shadow: var(--shadow-card);
+  z-index: 100;
+}
+body.sb-collapsed .admin-sidebar .brand-link:hover::after {
+  opacity: 1; transform: translateY(-50%) translateX(0);
+  transition-delay: 200ms;
+}
+
+/* ---- Sidebar footer -------------------------------------------- */
+.sidebar-footer {
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.sidebar-footer .footer-text { min-width: 0; line-height: 1.25; flex: 1; }
+.sidebar-footer-toggle {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, transform 200ms ease;
+}
+.sidebar-footer-toggle:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-subtle); }
+body.sb-collapsed .sidebar-footer-toggle,
+body.sb-flyout    .sidebar-footer-toggle { transform: rotate(180deg); }
+body.sb-collapsed .admin-sidebar .sidebar-footer { justify-content: center; padding: 10px 8px; }
+body.sb-collapsed .admin-sidebar .sidebar-footer .footer-text,
+body.sb-collapsed .admin-sidebar .sidebar-footer .dot { display: none; }
+
+/* ---- Mobile scrim + drawer behaviour --------------------------- */
+.sidebar-scrim {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(20,20,22,0.32);
+  backdrop-filter: blur(2px);
+  z-index: 29;
+}
+.dark .sidebar-scrim { background: rgba(0,0,0,0.55); }
+
+@media (max-width: 1023.98px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px !important;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-pop);
+    z-index: 50;
+  }
+  body.sb-collapsed .admin-sidebar { width: 280px !important; }
+  body.sb-mobile-open .admin-sidebar { transform: translateX(0); }
+
+  /* When mobile drawer is open we want the FULL expanded sidebar look,
+     not the collapsed-rail look. */
+  body.sb-collapsed .admin-sidebar .brand,
+  body.sb-collapsed .admin-sidebar .brand-link { justify-content: flex-start; padding: 0 12px 0 14px; }
+  body.sb-collapsed .admin-sidebar .brand-text,
+  body.sb-collapsed .admin-sidebar .sidebar-toggle { display: flex; }
+  body.sb-collapsed .admin-sidebar .nav-section { height: 24px; padding: 6px 10px 4px; border-top: none; margin-top: 0; }
+  body.sb-collapsed .admin-sidebar .nav-section span { opacity: 1; }
+  body.sb-collapsed .admin-sidebar .nav-item { width: auto; height: 34px; padding: 0 10px; justify-content: flex-start; gap: 12px; }
+  body.sb-collapsed .admin-sidebar .nav-label,
+  body.sb-collapsed .admin-sidebar .nav-count { display: inline-flex; }
+  /* Sub-groups get their full look back in the drawer, same as the labels. */
+  body.sb-collapsed .admin-sidebar .nav-item--group .nav-grp-chev { display: inline-flex; }
+  body.sb-collapsed .admin-sidebar .nav-item--child { height: 31px; }
+  body.sb-collapsed .admin-sidebar .nav-subgroup-body .nav-items { padding-inline-start: 14px; }
+  body.sb-collapsed .admin-sidebar .nav-subgroup-body .nav-items::before { display: block; }
+  body.sb-collapsed .admin-sidebar .sidebar-footer { justify-content: flex-start; padding: 10px 12px; }
+  body.sb-collapsed .admin-sidebar .sidebar-footer .footer-text { display: block; }
+  body.sb-collapsed .admin-sidebar .sidebar-footer .dot { display: inline-block; }
+
+  .sidebar-toggle, .sidebar-footer-toggle { display: none; }
+  .sidebar-close-mobile {
+    display: inline-flex;
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    align-items: center; justify-content: center;
+    color: var(--text-tertiary);
+    background: transparent;
+    border: none;
+  }
+  .sidebar-close-mobile:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .sidebar-scrim { display: block; }
+}
+@media (min-width: 1024px) {
+  .sidebar-scrim { display: none !important; }
+}

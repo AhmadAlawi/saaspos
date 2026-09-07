@@ -1,0 +1,174 @@
+/* ============================================================
+   Kiosk orders queue — in-page take-payment panel
+   ============================================================ */
+
+.kio-panel { max-width: 620px; }
+.kio-panel-body { display: flex; flex-direction: column; gap: 14px; }
+
+.kio-section-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* ── Unverified UPI claim banner ─────────────────────────────
+   Warning-toned on purpose: this is the one place a cashier can hand goods
+   away against a payment nobody confirmed. */
+.kio-claim {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--warning-soft);
+  border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+}
+.kio-claim-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; font-weight: 600; color: var(--warning);
+}
+.kio-claim-body {
+  margin-block-start: 4px;
+  font-size: 12.5px; line-height: 1.45; color: var(--text-secondary);
+}
+.kio-claim-facts {
+  display: flex; flex-wrap: wrap; gap: 8px 24px;
+  margin: 10px 0 0;
+}
+.kio-claim-facts dt {
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-tertiary);
+}
+.kio-claim-facts dd {
+  margin: 2px 0 0;
+  font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+}
+
+/* ── Handover detail (read-only) ─────────────────────────────
+   Mirrors `.kio-line` but drops the qty stepper and delete button: the sale
+   is already paid, so every column here is a fact, not a control. */
+.kio-collect-lines { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.kio-collect-line {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 88px 92px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  font-size: 13.5px;
+}
+.kio-collect-qty  { font-weight: 700; color: var(--accent); }
+.kio-collect-name { min-inline-size: 0; font-weight: 500; }
+.kio-collect-sku  { display: block; font-size: 11px; color: var(--text-tertiary); font-weight: 400; }
+.kio-collect-each { text-align: end; color: var(--text-tertiary); font-size: 12.5px; }
+.kio-collect-amt  { text-align: end; font-weight: 600; }
+
+.kio-collect-totals,
+.kio-collect-tenders {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px; border-radius: 8px;
+  background: var(--bg-page); border: 1px solid var(--border-subtle);
+  margin: 0; list-style: none;
+}
+.kio-collect-row {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 13.5px; color: var(--text-secondary);
+}
+.kio-collect-row > span:last-child { color: var(--text-primary); font-weight: 500; }
+.kio-collect-row.is-total {
+  margin-block-start: 4px; padding-block-start: 8px;
+  border-block-start: 1px solid var(--border-subtle);
+  font-size: 15px; color: var(--text-primary);
+}
+.kio-collect-row.is-total > span { font-weight: 700; }
+
+.kio-collect-meta { display: flex; gap: 6px; font-size: 12px; color: var(--text-tertiary); }
+
+/* ── Editable lines ─────────────────────────────────────── */
+.kio-lines { display: flex; flex-direction: column; gap: 8px; }
+.kio-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 92px 32px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.kio-line-name { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kio-line-amt  { text-align: end; font-size: 13.5px; font-weight: 600; }
+.kio-line-del {
+  width: 28px; height: 28px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--danger);
+}
+.kio-line-del:hover { background: var(--danger-soft); }
+
+.kio-step {
+  display: flex; align-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: 8px; overflow: hidden;
+}
+.kio-step button {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+.kio-step button:hover:not(:disabled) { background: color-mix(in srgb, var(--text-primary) 10%, transparent); }
+.kio-step button:disabled { opacity: 0.4; cursor: not-allowed; }
+.kio-step-val { min-width: 36px; text-align: center; font-size: 13.5px; font-weight: 600; }
+
+.kio-empty { text-align: center; padding: 18px; font-size: 13px; color: var(--danger); }
+
+/* ── Totals ─────────────────────────────────────────────── */
+.kio-totals {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px; border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+.kio-total-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 13px; color: var(--text-secondary);
+}
+.kio-total-row.is-grand {
+  font-size: 16px; font-weight: 700; color: var(--text-primary);
+  padding-top: 6px; border-top: 1px solid var(--border-subtle);
+}
+
+/* ── Split tenders ──────────────────────────────────────── */
+.kio-tenders {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 14px; border-radius: 10px;
+  background: var(--accent-soft); border: 1px solid var(--border-subtle);
+}
+.kio-tender {
+  display: grid; grid-template-columns: minmax(0,1fr) auto 28px;
+  align-items: center; gap: 10px; font-size: 13px;
+}
+
+.kio-change {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: 8px;
+  background: var(--positive-soft); color: var(--positive);
+  font-size: 14px; font-weight: 600;
+}
+
+/* ── QR pane ────────────────────────────────────────────── */
+.kio-qr {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px; border-radius: 10px;
+  border: 1px solid var(--border-subtle); background: var(--bg-elevated);
+}
+.kio-qr-card {
+  width: 148px; height: 148px; flex: 0 0 auto;
+  border-radius: 10px; padding: 8px; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.kio-qr-card img { width: 100%; height: 100%; }
+.kio-qr-text { font-size: 13.5px; }
+
+.kio-error { font-size: 13px; font-weight: 600; color: var(--danger); }

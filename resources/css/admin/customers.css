@@ -1,0 +1,33 @@
+/* ============================================================
+   Customers module — KPI cards on the show page + address-row
+   stack in the editor's repeater.
+   ============================================================ */
+
+/* KPI card body (outstanding / store credit / loyalty). */
+.cust-kpi-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.cust-kpi-value {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* Each row in the addresses repeater on the edit form. Visually
+   separated so the cluster of fields per address reads as one block. */
+.addr-row {
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+.addr-row + .addr-row {
+  margin-top: 12px;
+}
+.dark .addr-row { background: var(--bg-surface); }

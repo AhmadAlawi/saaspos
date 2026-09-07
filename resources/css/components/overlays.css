@@ -1,0 +1,136 @@
+/* ============================================================
+   Overlays — shared scrim + modal + confirm + drawer
+   ============================================================ */
+
+.scrim {
+  background: rgba(20,20,22,0.32);
+  backdrop-filter: blur(2px);
+}
+.dark .scrim { background: rgba(0,0,0,0.55); }
+
+.overlay-host {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+
+/* ---- Modal — centered card -------------------------------------- */
+.modal-card {
+  position: relative;
+  width: 100%; max-width: 560px;
+  max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  animation: modal-in 180ms cubic-bezier(.4,0,.2,1);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 10px;
+  flex-shrink: 0;
+}
+.modal-title { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.005em; }
+.modal-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.modal-x {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-tertiary);
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.modal-x:hover { background: var(--bg-hover); color: var(--text-primary); }
+.modal-body { padding: 18px; overflow-y: auto; flex: 1 1 auto; }
+.modal-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+/* ---- Confirm dialog (narrow modal variant) ---------------------- */
+.modal-card.is-confirm { max-width: 420px; }
+.modal-card.is-confirm .modal-body {
+  padding: 20px 22px 16px;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.confirm-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--danger-soft); color: var(--danger);
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+.modal-card.is-confirm.is-warning  .confirm-icon {
+  background: var(--warning-soft); color: var(--warning);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warning) 18%, transparent);
+}
+.modal-card.is-confirm.is-positive .confirm-icon {
+  background: var(--positive-soft); color: var(--positive);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--positive) 18%, transparent);
+}
+.confirm-title { font-size: 14.5px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.005em; }
+.confirm-msg { font-size: 13px; color: var(--text-secondary); margin-top: 6px; line-height: 1.55; }
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---- Off-canvas drawer ------------------------------------------ */
+/* `.drawer-overlay` is the full-screen layout container. It pins the
+   drawer to the inline-end edge and stacks a click-to-close backdrop
+   (`.drawer-scrim`) behind it. */
+.drawer-overlay {
+  position: fixed; inset: 0; z-index: 65;
+  display: flex; justify-content: flex-end;
+}
+.drawer-scrim {
+  position: absolute; inset: 0;
+  display: block;
+}
+/* Kept as an alias of `.drawer-overlay` for any older markup. */
+.drawer-host {
+  position: fixed; inset: 0; z-index: 65;
+  display: flex; justify-content: flex-end;
+}
+.drawer {
+  position: relative;
+  width: 480px; max-width: 100vw; height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--bg-surface);
+  border-inline-start: 1px solid var(--border-default);
+  box-shadow: var(--shadow-pop);
+  animation: drawer-in 220ms cubic-bezier(.4,0,.2,1);
+}
+.drawer-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 10px;
+  flex-shrink: 0;
+}
+.drawer-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.drawer-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.drawer-body { padding: 18px; overflow-y: auto; flex: 1 1 auto; }
+.drawer-foot {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.drawer-sm { width: 380px; }
+.drawer-lg { width: 640px; }
+@keyframes drawer-in {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}

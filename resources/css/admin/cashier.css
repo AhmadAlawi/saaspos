@@ -1,0 +1,5488 @@
+/*
+ * Cashier checkout (full-screen at /cashier).
+ *
+ * Layout: thin brand strip on top (cashier-topbar), two-column main:
+ *   - LEFT (catalog): search + category chips + product grid
+ *   - RIGHT (cart):   line items + totals + pay
+ *
+ * No admin sidebar, no admin footer, no breadcrumb. The cashier owns
+ * the whole viewport — Square / Toast / Lightspeed-style focused-task UI.
+ */
+
+/* .pin-pad* rules live in ../components/pin-pad.css — shared with
+   auth.css so the login screen's PIN pad gets the same styles. */
+@import '../components/pin-pad.css';
+
+/* ── Shell ──────────────────────────────────────────────────────── */
+
+.cashier-body {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg-muted, var(--bg-canvas));
+}
+
+.cashier-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* `cashier-main` is itself a flex column so children below propagate
+   the height correctly. Without this the inner `.cashier-page` doesn't
+   know how tall it is and the cart's totals/PAY area pushes below the
+   viewport (the bug that showed the cart "missing" its bottom). */
+.cashier-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cashier-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Connectivity indicator (Slice 1: offline-first) ─────────────
+ * Small pill in the cashier toolbar with a colored dot + status
+ * label. Clicking opens a popover with last-synced + a "refresh
+ * now" CTA. Status drives the dot color. */
+
+.cashier-conn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cashier-conn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: background .12s, border-color .12s;
+}
+
+.cashier-conn-btn:hover {
+  background: var(--bg-surface);
+}
+
+.cashier-conn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.cashier-conn-btn.is-online .cashier-conn-dot {
+  background: var(--success, #15803d);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success, #15803d) 25%, transparent);
+}
+
+.cashier-conn-btn.is-degraded .cashier-conn-dot {
+  background: var(--warning, #b45309);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning, #b45309) 25%, transparent);
+}
+
+.cashier-conn-btn.is-offline .cashier-conn-dot {
+  background: var(--danger, #b91c1c);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger, #b91c1c) 25%, transparent);
+}
+
+.cashier-conn-dot.is-spinning {
+  animation: cashier-conn-spin 0.9s linear infinite;
+}
+
+@keyframes cashier-conn-spin {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+}
+
+.cashier-conn-label {
+  font-variant-numeric: tabular-nums;
+}
+
+.cashier-conn-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  z-index: 30;
+  min-width: 240px;
+  padding: 10px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.18);
+}
+
+.cashier-conn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-size: 12.5px;
+}
+
+.cashier-conn-row-label {
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.cashier-conn-row-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cashier-conn-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.cashier-conn-refresh:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cashier-conn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Pill queue badge — visible when offline-completed sales are waiting
+ * to drain. Matches the unread-notification dot pattern. */
+.cashier-conn-queue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-inline-start: 2px;
+  border-radius: 999px;
+  background: var(--warning, #b45309);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.cashier-conn-queue-pending {
+  color: var(--warning, #b45309);
+}
+
+/* Install + Update buttons share the refresh layout but use the
+ * accent color so they read as primary actions when surfaced. */
+.cashier-conn-install,
+.cashier-conn-update {
+  margin-top: 6px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.cashier-conn-install:hover:not(:disabled),
+.cashier-conn-update:hover:not(:disabled) {
+  background: var(--accent-hover, var(--accent));
+  color: var(--accent-fg);
+  filter: brightness(1.05);
+}
+
+/* ── Brand strip ────────────────────────────────────────────────── */
+
+.cashier-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 56px;
+  padding: 0 20px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.cashier-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+
+.cashier-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.cashier-brand-logo {
+  max-height: 32px;
+  max-width: 160px;
+  object-fit: contain;
+}
+
+.cashier-brand-name {
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.005em;
+}
+
+.cashier-topbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cashier-user {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-muted, transparent);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.cashier-user-name {
+  font-weight: 500;
+}
+
+.cashier-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.cashier-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Language toggle badge — sits inside a .cashier-icon-btn (see
+   <x-lang-toggle>), so it inherits that button's size/hover states. */
+.lang-toggle-code {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ── Two-column layout ─────────────────────────────────────────── */
+
+/* `.cashier-page` is the outer flex column wrapping ALL content. The
+   toolbar + categories sit at the page level (full width); the layout
+   below them is the grid+cart split. Padding sits on the layout — not
+   on the children — so the cart looks like a contained card with a
+   gutter to the page edges.
+
+   RTL note: this grid's columns are physical-looking (`1fr 400px`) but
+   Grid resolves column-line 1 against the inline-start edge, which the
+   `dir="rtl"` on <html> already flips — so under RTL the catalog/cart
+   pair mirrors automatically (catalog stays first in DOM/reading order,
+   cart stays at the reading-end, physically swapping sides). Verified
+   the same holds for the order-based Lane/Focus flips below, so none of
+   the Beam/Lane/Counter/Focus variants need a `:where([dir="rtl"])`
+   override — adding `row-reverse`/flipped `order` on top would double-
+   mirror them back to the wrong side. */
+
+.cashier-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 16px;
+  padding: 16px 18px;
+}
+
+@media (max-width: 1023px) {
+  .cashier-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    padding-bottom: calc(16px + 64px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-tab-hidden {
+    display: none !important;
+  }
+
+  .cashier-seg {
+    display: none !important;
+  }
+}
+
+/* ── Mobile Bottom Navigation ────────────────────────────────── */
+
+.cashier-mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(64px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-subtle);
+  z-index: 40;
+}
+
+@media (max-width: 768px) {
+  .cashier-mobile-nav {
+    display: flex;
+  }
+}
+
+.cashier-mobile-nav-btn {
+  flex: 1 1 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  position: relative;
+  transition: color 100ms ease;
+}
+
+.cashier-mobile-nav-btn.is-active {
+  color: var(--accent);
+}
+
+.cashier-mobile-badge {
+  position: absolute;
+  top: 6px;
+  /* Logical rewrite: was `left: calc(50% + 4px)` — identical in LTR,
+     and now shifts toward the reading-end side automatically in RTL. */
+  inset-inline-start: calc(50% + 4px);
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+/* ── LEFT: catalog (just the grid now — toolbar & cats live at the
+   page level, above the layout) ─────────────────────────────────── */
+
+.cashier-catalog {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* Toolbar — wraps search + scan + overflow as a single chrome row. */
+
+.cashier-toolbar {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .cashier-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .cashier-scan {
+    flex: 1 1 100%;
+  }
+
+  .cashier-user-name,
+  .cashier-brand-name {
+    display: none !important;
+  }
+}
+
+/* Search / scan input wrappers — same look, different widths. */
+
+.cashier-search,
+.cashier-scan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+
+.cashier-search {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cashier-scan {
+  flex: 0 0 260px;
+}
+
+.cashier-search:focus-within,
+.cashier-scan:focus-within {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.cashier-search-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.cashier-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font-size: 14px;
+  color: var(--text-primary);
+  height: 100%;
+}
+
+.cashier-scan-input {
+  letter-spacing: 0.04em;
+}
+
+.cashier-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.cashier-search-clear,
+.cashier-search-shortcut {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.cashier-search-clear {
+  width: 28px;
+  background: transparent;
+  border: 0;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.cashier-search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.cashier-search-shortcut {
+  padding: 0 8px;
+  background: var(--bg-muted, var(--bg-canvas));
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+}
+
+/* Category chips — now full-width above the layout split. */
+
+.cashier-cats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  overflow-x: auto;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.cashier-cats::-webkit-scrollbar {
+  height: 6px;
+}
+
+.cashier-cats::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 999px;
+}
+
+.cashier-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+  flex-shrink: 0;
+}
+
+.cashier-cat:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.cashier-cat.is-active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.cashier-cat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--cat-color, var(--text-tertiary));
+}
+
+.cashier-cat-count {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.08);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.cashier-cat.is-active .cashier-cat-count {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Product grid */
+
+.cashier-grid {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px 20px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+@media (min-width: 1536px) {
+  .cashier-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+/* Tile */
+
+.cashier-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  overflow: hidden;
+  /* Explicit floor so the grid row can't compress the tile below its
+     content (art + name + price). We saw a Firefox case where the
+     button collapsed to ~23px and `overflow: hidden` clipped the
+     name/price rows entirely. */
+  min-height: 220px;
+}
+
+.cashier-tile:hover:not(:disabled) {
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.08);
+}
+
+.cashier-tile:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cashier-tile:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Out-of-stock tiles — the click handler now blocks adds (toasts a
+   warning), and the styling matches that: muted art, not-allowed
+   cursor, faded text. The server-side guard is still the authority,
+   but the client-side block keeps the cashier from a confusing
+   "click → checkout → 422" loop. */
+.cashier-tile.is-out {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.cashier-tile.is-out .cashier-tile-art {
+  filter: grayscale(0.5);
+}
+
+.cashier-tile.is-out:hover {
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+
+/* Art container — 4:3 hero matching the canonical mockup's
+   `.tile-thumb` (design-system/Checkout.html L370–377).
+   - `aspect-ratio: 4/3` is the modern way and works inside flex/grid.
+   - `padding-bottom: 75%` is a fallback for older Safari where the
+      span+flex+aspect-ratio combo can compute to 0.
+   - Belt-and-suspenders `min-height` so the art always reserves
+     SOME space even if both above fail. */
+.cashier-tile-art {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding-bottom: 75%;
+  min-height: 90px;
+  background: var(--bg-muted, var(--bg-canvas));
+  border-radius: 8px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+/* When `aspect-ratio` IS honoured by the browser, the padding-bottom
+   becomes redundant overhead — zero it out via `@supports` so the
+   box doesn't end up double-height. */
+@supports (aspect-ratio: 4 / 3) {
+  .cashier-tile-art {
+    padding-bottom: 0;
+  }
+}
+
+.cashier-tile-art>img,
+.cashier-tile-art>.cashier-tile-mark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cashier-tile-art>img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cashier-tile-mark {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cashier-tile-stock {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(4px);
+}
+
+.dark .cashier-tile-stock {
+  background: rgba(20, 20, 22, 0.85);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.cashier-tile-stock.is-low {
+  background: color-mix(in srgb, var(--warning, #F59E0B) 18%, white);
+  color: color-mix(in srgb, var(--warning, #F59E0B) 60%, black);
+  border-color: color-mix(in srgb, var(--warning, #F59E0B) 50%, transparent);
+}
+
+.dark .cashier-tile-stock.is-low {
+  /* Mix INTO the dark surface (#141416), not `transparent` — a see-through
+     pill over light product art washed the pale text out (was invisible in
+     dark mode). An opaque dark-amber chip reads on any tile background. */
+  background: color-mix(in srgb, var(--warning, #F59E0B) 30%, #141416);
+  color: color-mix(in srgb, var(--warning, #F59E0B) 85%, white);
+  border-color: color-mix(in srgb, var(--warning, #F59E0B) 55%, transparent);
+}
+
+.cashier-tile-stock.is-out {
+  background: color-mix(in srgb, var(--danger) 18%, white);
+  color: color-mix(in srgb, var(--danger) 60%, black);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+}
+
+.dark .cashier-tile-stock.is-out {
+  background: color-mix(in srgb, var(--danger) 30%, #141416);
+  color: color-mix(in srgb, var(--danger) 85%, white);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+/* Tile name — 2 lines with ellipsis. Uses `-webkit-box` directly
+   (supported in every browser we ship for, including Firefox via
+   `-webkit-line-clamp` polyfill since 68). A `min-height` reserves
+   space so the tile stays a uniform height across rows even when a
+   product name is a single short word. */
+.cashier-tile-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  margin-bottom: 4px;
+  min-height: 36px;
+  word-break: break-word;
+}
+
+.cashier-tile-price-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.cashier-tile-price {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Empty grid state */
+
+.cashier-grid-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-tertiary);
+}
+
+.cashier-grid-empty-title {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cashier-grid-empty-sub {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ── RIGHT: cart card ──────────────────────────────────────────── */
+
+/* `min-height: 0` is the load-bearing rule. Without it the cart's
+   intrinsic content height (lines + totals + actions) wins over the
+   parent grid row and pushes totals / Pay below the viewport. With it,
+   the cart card respects the grid row height and `.cashier-cart-lines`
+   becomes the scrollable middle. */
+
+.cashier-cart {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cashier-cart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.cashier-cart-count {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* Cart lines */
+
+.cashier-cart-lines {
+  flex: 1 1 0;
+  overflow-y: auto;
+  padding: 4px 0;
+  min-height: 0;
+}
+
+@media (max-width: 1023px) {
+  .cashier-cart {
+    overflow-y: auto;
+  }
+
+  .cashier-cart-lines {
+    flex: 0 0 auto;
+    overflow-y: visible;
+  }
+}
+
+.cashier-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cashier-line:last-child {
+  border-bottom: 0;
+}
+
+.cashier-line-meta {
+  min-width: 0;
+}
+
+.cashier-line-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-line-sub {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.cashier-line-qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cashier-step {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.cashier-step:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cashier-qty-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 24px;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.cashier-line-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cashier-line-total .num {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cashier-remove {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.cashier-remove:hover {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+.cashier-cart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-tertiary);
+}
+
+.cashier-cart-empty-title {
+  margin-top: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Totals + actions */
+
+.cashier-totals {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.cashier-totals-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.cashier-totals-grand {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 6px;
+  padding-top: 10px;
+}
+
+.cashier-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+@media (max-width: 1023px) {
+  .cashier-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cashier-act-btn-primary {
+    grid-column: 1 / -2;
+  }
+
+  .cashier-actions {
+    grid-template-columns: 1fr 1fr 0fr !important;
+  }
+
+}
+
+.cashier-clear-btn {
+  height: 56px;
+  padding: 0 16px;
+}
+
+.cashier-pay-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 56px;
+  padding: 0 18px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 0;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 100ms ease, transform 80ms ease, box-shadow 120ms ease;
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.cashier-pay-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.cashier-pay-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.cashier-pay-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.cashier-pay-label {
+  letter-spacing: 0.02em;
+}
+
+.cashier-pay-amount {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid color-mix(in srgb, var(--accent-fg) 30%, transparent);
+}
+
+/* The old payment-modal rules have been superseded by the
+   `.cashier-pay-hero` / `.cashier-pay-section-title` / etc. block at
+   the bottom of this file. Keeping only the confirm-button rule that's
+   shared between old and new modal markup. */
+
+.cashier-pay-confirm {
+  height: 44px;
+  padding: 0 22px;
+  font-weight: 700;
+}
+
+/* ── Success overlay ─────────────────────────────────────────── */
+
+.cashier-success-card {
+  max-width: 420px;
+  text-align: center;
+  padding: 32px 28px;
+}
+
+.cashier-success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--positive) 18%, transparent);
+  color: var(--positive);
+  margin: 0 auto 16px;
+}
+
+.cashier-success-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.cashier-success-number {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 14px;
+}
+
+.cashier-success-amount {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+
+.cashier-success-change {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin-top: 8px;
+}
+
+.cashier-success-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+/* ── Overflow menu (toolbar ···) ───────────────────────────────── */
+
+.cashier-overflow {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.cashier-overflow .cashier-icon-btn {
+  height: 44px;
+  width: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, color .12s, border-color .12s;
+}
+
+.cashier-overflow .cashier-icon-btn:hover,
+.cashier-overflow .cashier-icon-btn.is-active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.cashier-overflow-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  z-index: 30;
+  min-width: 240px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.10);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* SKIPPED (documented, not silent): the "Refund" row here reuses the
+   directional `back` icon, but `.cashier-overflow-item` is shared by
+   many non-directional icons (receipt, pos, lock, camera, archive,
+   clock, key) with no per-icon class to distinguish them. Mirroring
+   just the refund icon needs a Blade-level class change, which is out
+   of scope for this CSS-only pass. */
+.cashier-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+  width: 100%;
+}
+
+.cashier-overflow-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.cashier-overflow-item:disabled,
+.cashier-overflow-item.is-soon {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.cashier-overflow-item>span:not(.cashier-overflow-tag) {
+  flex: 1 1 auto;
+}
+
+.cashier-overflow-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--bg-muted, var(--bg-canvas));
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Keyboard-shortcuts help modal — label + key on each row. */
+.cashier-shortcut-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cashier-shortcut-list>li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 8px 4px;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.cashier-shortcut-list>li:last-child {
+  border-bottom: 0;
+}
+
+.cashier-overflow-sep {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 4px;
+}
+
+/* ── Tile extras: Sizes badge, price row, MRP strike ──────────── */
+
+.cashier-tile-variants,
+.cashier-tile-kit {
+  position: absolute;
+  top: 6px;
+  inset-inline-start: 6px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(4px);
+}
+
+.dark .cashier-tile-variants,
+.dark .cashier-tile-kit {
+  background: rgba(20, 20, 22, 0.85);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+/* Kit badge uses an accent fill so it stands out — bundles behave
+   differently at checkout (multiple stock draws) and the cashier
+   needs to know upfront. */
+.cashier-tile-kit {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dark .cashier-tile-kit {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+
+/* If a tile has BOTH `is_kit` AND `has_variants` (rare but possible),
+   the KIT chip sits underneath the opts chip via the second-child
+   offset below. */
+.cashier-tile-variants~.cashier-tile-kit {
+  top: 30px;
+}
+
+/* Compact "Includes A, B, C" line under the tile name.
+   Single-line truncate with a guaranteed "…". `-webkit-line-clamp`
+   was unreliable for cases where the overflow is a partial character
+   (the user reported "200m" cut without a "…"). White-space:nowrap +
+   text-overflow:ellipsis renders the elision on every engine. The
+   Blade keeps the full kit list on the element's `title` attribute,
+   so hover reveals what was elided. */
+.cashier-tile-kit-list {
+  display: block;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.35;
+  margin: -2px 0 6px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* (`.cashier-tile-price-row` lives once near the top of the file —
+   any later block was a duplicate from an earlier refactor and has
+   been removed.) */
+
+.cashier-tile-from {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.cashier-tile-mrp {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+  font-weight: 500;
+}
+
+/* ── Cart: customer chip ──────────────────────────────────────── */
+
+.cashier-cart-customer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.cashier-customer-chip {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-canvas);
+  border: 1px dashed var(--border-default);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: start;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.cashier-customer-chip:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.cashier-customer-chip.is-assigned {
+  background: var(--accent-soft);
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.cashier-customer-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-customer-phone {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.cashier-customer-reset {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+  color: var(--text-tertiary);
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cashier-customer-reset:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ── Customer picker modal ──────────────────────────────────────
+   NOTE: `.cashier-cust-picker-card` not `.cashier-customer-card` —
+   the latter is now used by the cart's customer pill, and the two
+   declarations were fighting over `display:` and breaking the modal
+   layout (showed transparent overlay in production). */
+
+.cashier-cust-picker-card {
+  width: 100%;
+  max-width: 520px;
+}
+
+.cashier-customer-add-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.cashier-customer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cashier-customer-results {
+  margin-top: 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cashier-customer-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: start;
+}
+
+.cashier-customer-result:hover,
+.cashier-customer-result:focus-visible {
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
+  outline: none;
+}
+
+.cashier-customer-result-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cashier-customer-result-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-customer-result-sub {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.cashier-customer-result-balance {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--danger, #b91c1c);
+  flex-shrink: 0;
+}
+
+.cashier-customer-empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* Rename: the old `.cashier-clear-btn` rule no longer applies — the
+   button is now the hold-stub. The previous styling was identical to
+   `.pos-btn-ghost`, so no extra hold-specific rule is needed. */
+
+/* ── Tile: stock detail line under name ───────────────────────── */
+
+.cashier-tile-stockdetail {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Cart line: variant label chip ────────────────────────────── */
+
+.cashier-line-variant {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 600;
+  margin-inline-end: 6px;
+}
+
+/* ── Totals: breakdown rows ───────────────────────────────────── */
+
+.cashier-totals-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.cashier-totals-row+.cashier-totals-row {
+  margin-top: 8px;
+}
+
+.cashier-totals-neg {
+  color: var(--success, #15803d);
+}
+
+.cashier-totals-tax-hint {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Fine-print note under the Tax row, explaining how much of it was
+   already baked into the line prices. Sits at tertiary colour so it
+   doesn't compete with the actual tax number above. */
+.cashier-totals-tax-note {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-style: italic;
+  margin-top: 2px;
+  padding-inline: 12px;
+  text-align: end;
+}
+
+.cashier-totals-grand {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-default);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ── Variant picker modal ─────────────────────────────────────── */
+
+.cashier-variant-card {
+  width: 100%;
+  max-width: 640px;
+}
+
+.cashier-variant-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cashier-variant-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.cashier-variant-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.cashier-variant-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 12px 12px 10px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: start;
+  transition: background .12s, border-color .12s, transform .08s;
+}
+
+.cashier-variant-tile:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.cashier-variant-tile:active {
+  transform: translateY(1px);
+}
+
+.cashier-variant-tile.is-out,
+.cashier-variant-tile.is-unavailable,
+.cashier-variant-tile:disabled {
+  opacity: 0.55;
+  filter: grayscale(0.6);
+  cursor: not-allowed;
+}
+
+.cashier-variant-tile.is-out:hover,
+.cashier-variant-tile.is-unavailable:hover,
+.cashier-variant-tile:disabled:hover {
+  border-color: var(--border-subtle);
+  box-shadow: none;
+}
+
+.cashier-variant-tile-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.cashier-variant-tile-sku {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.cashier-variant-tile-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cashier-variant-tile-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cashier-variant-tile-stock {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.cashier-variant-tile-stock.is-low {
+  color: var(--warning, #b45309);
+}
+
+.cashier-variant-tile-stock.is-out {
+  color: var(--danger, #b91c1c);
+  font-weight: 600;
+}
+
+.cashier-variant-tile-stock.is-unavailable {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* ── Load more / grid CTA ─────────────────────────────────────── */
+
+.cashier-grid-loadmore {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 6px;
+}
+
+.cashier-grid-loadmore .pos-btn {
+  min-width: 200px;
+  height: 40px;
+}
+
+.cashier-grid-loadmore-count {
+  margin-inline-start: 2px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Held drawer ──────────────────────────────────────────────── */
+
+.cashier-held-card {
+  width: 100%;
+  max-width: 720px;
+}
+
+.cashier-held-list {
+  margin-top: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cashier-held-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  /* Logical rewrite: was `padding: 14px 14px 14px 16px` (extra 2px on
+     the physical left). Kept on the start side so it still leads in RTL. */
+  padding: 14px;
+  padding-inline-start: 16px;
+  padding-inline-end: 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.cashier-held-row-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cashier-held-row-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cashier-held-row-sub {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.cashier-held-row-stat {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.cashier-held-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* "Resume" reuses the shared `.pos-btn-primary` styling with the
+   directional `back` icon; the sibling "Void" button is plain `.pos-btn`
+   (trash icon), so scoping to `-primary` here only ever catches Resume. */
+:where([dir="rtl"]) .cashier-held-row-actions .pos-btn-primary svg {
+  transform: scaleX(-1);
+}
+
+/* ── Payment modal v2 — 2-column layout (mockup L1098-1295) ────
+   The old centered single-column modal lives at `.cashier-pay-card`
+   below; this v2 modal (`.cashier-pay-modal`) is the active one. */
+
+.cashier-pay-modal {
+  width: 100%;
+  max-width: 760px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.cashier-pay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.cashier-pay-header-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cashier-pay-header-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.cashier-pay-body {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  /* Keep the comfortable default height, but cap it to the viewport so
+     a tall picked-method pane scrolls instead of getting clipped by the
+     card's `overflow: hidden` (≈64px header + 48px modal margins). */
+  min-height: 360px;
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+}
+
+@media (max-width: 1023px) {
+  .cashier-pay-body {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .cashier-pay-methods-list {
+    border-inline-end: 0 !important;
+    border-bottom: 1px solid var(--border-subtle);
+    max-height: 180px;
+  }
+}
+
+.cashier-pay-methods-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 8px;
+  border-inline-end: 1px solid var(--border-subtle);
+  background: var(--bg-canvas);
+  overflow-y: auto;
+}
+
+.cashier-pay-method-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: start;
+  transition: background .12s;
+}
+
+.cashier-pay-method-row:hover {
+  background: var(--bg-hover);
+}
+
+.cashier-pay-method-row.is-active {
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Offline-disabled (e.g. QR pay needs the network). */
+.cashier-pay-method-row.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cashier-pay-method-row.is-disabled:hover { background: transparent; }
+
+.cashier-pay-method-row .cashier-pay-method-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.cashier-pay-method-row.is-active .cashier-pay-method-icon {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
+}
+
+.cashier-pay-method-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cashier-pay-method-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-pay-method-sub {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-pay-detail {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: inherit;
+}
+
+.cashier-pay-detail-due {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.cashier-pay-detail-due-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cashier-pay-detail-due-amount {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+/* Credit-mode banner — shows the unpaid balance that will land on the
+   customer's outstanding when the cashier submits with partial pay. */
+.cashier-pay-credit-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: color-mix(in oklab, var(--accent-amber, #f59e0b) 12%, transparent);
+  color: var(--accent-amber, #f59e0b);
+  border: 1px solid color-mix(in oklab, var(--accent-amber, #f59e0b) 35%, transparent);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cashier-pay-credit-banner>span:last-child {
+  margin-inline-start: auto;
+  font-size: 14px;
+}
+
+.cashier-pay-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cashier-pay-pane-centered {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  padding: 18px 0;
+}
+
+.cashier-pay-eyebrow {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cashier-pay-cash-wrap {
+  position: relative;
+}
+
+.cashier-pay-cash-prefix {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 14px;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.cashier-pay-cash-input {
+  width: 100%;
+  height: 56px;
+  /* Logical rewrite: was `padding: 0 14px 0 32px` — the extra start-side
+     room is for `.cashier-pay-cash-prefix`, which already sits at
+     `inset-inline-start`. Physical padding here didn't follow it, so in
+     RTL the prefix moved but the reserved space didn't; now they match. */
+  padding-inline-start: 32px;
+  padding-inline-end: 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+
+.cashier-pay-cash-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.cashier-pay-quick {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.cashier-pay-quick-tile {
+  height: 38px;
+  padding: 0 6px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.cashier-pay-quick-tile:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cashier-pay-change-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.cashier-pay-change-card .cashier-pay-change-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cashier-pay-change-card .cashier-pay-change-amount {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cashier-pay-change-card .cashier-pay-change-amount.is-pos {
+  color: var(--success, #15803d);
+}
+
+.cashier-pay-accept {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 48px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 0;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .12s, box-shadow .12s, transform .08s;
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.cashier-pay-accept:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.cashier-pay-accept:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.cashier-pay-accept-inline {
+  margin-top: 12px;
+  width: auto;
+  padding: 0 22px;
+}
+
+/* ── Split tender tally ───────────────────────────────────────────
+ * One row per already-committed payment in the current ring-up. Sits
+ * between the "Due" row and the active method pane so the cashier
+ * sees the running tally without scrolling. Hidden when empty (the
+ * common single-tender path stays uncluttered). */
+
+.cashier-pay-tally {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.cashier-pay-tally-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  padding-bottom: 6px;
+  border-bottom: 1px dashed var(--border-subtle);
+}
+
+.cashier-pay-tally-head .num {
+  color: var(--text-primary);
+  font-size: 12.5px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.cashier-pay-tally-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto auto 28px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.cashier-pay-tally-icon {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cashier-pay-tally-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cashier-pay-tally-ref {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cashier-pay-tally-amount {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cashier-pay-tally-remove {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, color .12s;
+}
+
+.cashier-pay-tally-remove:hover:not(:disabled) {
+  background: var(--danger-soft, color-mix(in srgb, var(--danger, #b91c1c) 12%, transparent));
+  color: var(--danger, #b91c1c);
+}
+
+.cashier-pay-tally-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Two-button action row inside a pane — "Add payment" beside the
+ * primary "Complete sale" (or pane-specific accept label). When only
+ * one button shows (the common single-tender flow) it still spans
+ * full-width because the hidden sibling collapses. */
+
+.cashier-pay-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.cashier-pay-actions .cashier-pay-accept,
+.cashier-pay-actions .cashier-pay-add {
+  flex: 1 1 0;
+}
+
+.cashier-pay-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 48px;
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default, var(--border-subtle));
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+
+.cashier-pay-add:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cashier-pay-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Optional amount input shown only when split tender is active on a
+ * non-cash pane (card / terminal). Tightens the spacing so the amount
+ * + accept feels like one unit. */
+
+.cashier-pay-amount-field {
+  margin-bottom: 4px;
+}
+
+/* ── Stripe gateway pane (cashier pay modal) ─────────────────────
+ * Big QR + open-link button + live status row. The flow is:
+ * cashier picks Stripe → pane renders → QR shown → cashier shows it
+ * to the customer → customer pays on phone → poll sees `paid` →
+ * sale auto-completes. */
+
+.cashier-pay-stripe {
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.cashier-pay-stripe-head {
+  text-align: center;
+}
+
+.cashier-pay-stripe-qr {
+  display: inline-block;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  line-height: 0;
+}
+
+.cashier-pay-stripe-qr img {
+  display: block;
+  width: 220px;
+  height: 220px;
+}
+
+.cashier-pay-stripe-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  word-break: break-all;
+  max-width: 280px;
+}
+
+.cashier-pay-stripe-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.cashier-pay-stripe-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+}
+
+.cashier-pay-stripe-status.is-pending .cashier-pay-stripe-dot {
+  background: var(--warning, #b45309);
+  animation: cashier-conn-spin 1.2s linear infinite;
+}
+
+.cashier-pay-stripe-status.is-paid .cashier-pay-stripe-dot {
+  background: var(--success, #15803d);
+}
+
+.cashier-pay-stripe-status.is-failed .cashier-pay-stripe-dot {
+  background: var(--danger, #b91c1c);
+}
+
+.cashier-pay-stripe-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ── Generic QR-chooser pane (provider-agnostic) ────────────────
+ * Renders the QR + share-link + countdown after the cashier hits
+ * the "Charge via QR" tile. The customer scans → picks any wired
+ * gateway on the /pay/pos/{uuid} page → pays → cashier polling
+ * sees `paid` → sale auto-completes.
+ */
+
+.cashier-pay-pane.pay-qr {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 28px 32px;
+  align-items: stretch;
+  text-align: center;
+}
+
+.pay-qr-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  margin-top: 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.pay-qr-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+}
+
+.pay-qr-status-dot.is-pending {
+  background: var(--warning, #b45309);
+  animation: cashier-conn-spin 1.2s linear infinite;
+}
+
+.pay-qr-status-dot.is-paid {
+  background: var(--success, #15803d);
+}
+
+.pay-qr-status-dot.is-failed {
+  background: var(--danger, #b91c1c);
+}
+
+/* Single-column stacked layout — QR, then meta, then countdown. A
+ * two-column variant got cramped at typical pay-modal widths
+ * (the meta column ended up ~140px and every line wrapped),
+ * so we stack and centre everything for predictability. */
+.pay-qr-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.pay-qr-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.pay-qr-art img {
+  display: block;
+  width: 220px;
+  height: 220px;
+}
+
+/* Dead session — blur/desaturate the QR so it's visibly un-scannable
+ * and float an error chip over it. Paired with `.pay-qr-dead-overlay`. */
+.pay-qr-art.is-dead img {
+  filter: grayscale(1) blur(2px);
+  opacity: 0.35;
+}
+
+.pay-qr-dead-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--danger, #b91c1c);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dark .pay-qr-dead-overlay {
+  background: rgba(20, 20, 22, 0.45);
+}
+
+.pay-qr-art-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 220px;
+  height: 220px;
+  color: var(--text-tertiary);
+  opacity: 0.35;
+}
+
+.pay-qr-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.pay-qr-instructions {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.pay-qr-share-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.pay-qr-row-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  text-align: start;
+}
+
+.pay-qr-share {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.pay-qr-share-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+}
+
+.pay-qr-share-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pay-qr-share-copy:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.pay-qr-cancel {
+  margin-top: 4px;
+  padding: 10px 22px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pay-qr-cancel:hover {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  border-color: var(--text-tertiary);
+}
+
+/* Regenerate — primary affordance shown only when the session is dead,
+ * mints a fresh QR in one tap. Mirrors the accent button language. */
+.pay-qr-regenerate {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pay-qr-regenerate:hover {
+  filter: brightness(1.05);
+}
+
+.pay-qr-foot {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+/* ── UPI VPA QR (manual-reference pane) ────────────────────
+ * Sits above the reference (UTR) input in the cashier's
+ * manual-reference panel. Visible only when the picked
+ * method is UPI AND has a VPA configured. There is no API
+ * or webhook for UPI VPA — the cashier still confirms the
+ * payment manually by typing the UTR into the reference
+ * field. The QR just gets the customer's UPI app open with
+ * the amount + payee pre-filled. */
+.upi-qr-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px;
+  margin-bottom: 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.upi-qr-head {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.upi-qr-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  min-height: 244px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.upi-qr-art img {
+  display: block;
+  width: 220px;
+  height: 220px;
+}
+
+.upi-qr-vpa {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.upi-qr-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  max-width: 320px;
+  line-height: 1.45;
+}
+
+/* ── Payment gateways settings page ─────────────────────────────
+ * Status pills for the per-provider cards and the muted "coming
+ * soon" placeholder cards for providers not yet wired. */
+
+.gateway-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.gateway-status-pill.is-on {
+  background: var(--success-soft, color-mix(in srgb, var(--success, #15803d) 14%, transparent));
+  color: var(--success, #15803d);
+}
+
+.gateway-status-pill.is-off {
+  background: var(--bg-canvas);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-subtle);
+}
+
+.gateway-status-pill.is-soon {
+  background: var(--warning-soft, color-mix(in srgb, var(--warning, #b45309) 14%, transparent));
+  color: var(--warning, #b45309);
+}
+
+.gateway-card-upcoming {
+  opacity: 0.85;
+  border-style: dashed;
+}
+
+/* ── Side-tabs layout for the Payment Gateways settings page ──── */
+
+.gateways-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .gateways-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* No outer card on the sidebar — it competes with the form card on
+ * the right. Tabs read as a clean vertical list with the active row
+ * picked out by an accent left-rail instead of a heavy filled
+ * background. */
+.gateways-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  position: sticky;
+  top: 16px;
+}
+
+.gateways-tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  border-inline-start: 2px solid transparent;
+  border-radius: 0;
+  text-align: start;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+
+.gateways-tab:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.gateways-tab.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-inline-start-color: var(--accent);
+}
+
+.gateways-tab.is-upcoming {
+  color: var(--text-tertiary);
+}
+
+.gateways-tab.is-upcoming:hover {
+  color: var(--text-secondary);
+}
+
+.gateways-tab-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gateways-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.gateways-tab-dot.is-on {
+  background: var(--success, #15803d);
+}
+
+.gateways-tab-dot.is-off {
+  background: color-mix(in srgb, var(--text-tertiary) 50%, transparent);
+}
+
+/* Muted "Soon" marker — much smaller + neutral than the previous
+ * bright-yellow pill. Reads as informational, not a CTA. */
+.gateways-tab-soon {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.gateways-tab.is-active .gateways-tab-soon {
+  color: color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* Eye-toggle for password-style fields (secret_key, webhook_secret).
+ * Logically-positioned button at the trailing edge of the input so it
+ * sits to the right in LTR and left in RTL without extra rules. */
+
+.secret-input-wrap {
+  position: relative;
+  display: block;
+}
+
+.secret-input-wrap .pos-input {
+  padding-inline-end: 40px;
+}
+
+.secret-input-eye {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 6px;
+  margin-block: auto;
+  height: 32px;
+  width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background .12s, color .12s;
+}
+
+.secret-input-eye:hover {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.secret-input-eye:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Webhook reference panel — surfaces the URL Stripe should POST to
+ * and the events the admin must subscribe to. Keeps it next to the
+ * webhook secret input so the setup is one continuous task instead
+ * of "now go read the docs". */
+
+.gateway-webhook-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  margin-top: -4px;
+  /* tuck against the field-help block above */
+}
+
+.gateway-webhook-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.gateway-webhook-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.gateway-webhook-value {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  word-break: break-all;
+}
+
+.gateway-webhook-events {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 12px;
+}
+
+.gateway-webhook-events-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.gateway-webhook-event-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+}
+
+.gateway-webhook-event-group code {
+  color: var(--text-primary);
+}
+
+.gateway-webhook-event-kind {
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.gateway-webhook-event-kind.is-required {
+  background: var(--success-soft, color-mix(in srgb, var(--success, #15803d) 14%, transparent));
+  color: var(--success, #15803d);
+}
+
+.gateway-webhook-event-kind.is-recommended {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.gateways-pane-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 8px;
+}
+
+.gateways-pane-empty-icon {
+  color: var(--text-tertiary);
+}
+
+.gateways-pane-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.gateways-pane-empty-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 360px;
+}
+
+/* ── Batch picker (pharmacy / FEFO) ──────────────────────────────
+ * One tile per live batch with batch_number / expiry / on_hand / price.
+ * Same grid shape as the variant picker; `is-expired` / `is-soon`
+ * call out the time-sensitive batches in the FEFO sort. */
+
+.cashier-batch-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.cashier-batch-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 12px 14px 10px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: start;
+  transition: background .12s, border-color .12s, transform .08s;
+}
+
+.cashier-batch-tile:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.cashier-batch-tile:active {
+  transform: translateY(1px);
+}
+
+.cashier-batch-tile.is-soon {
+  border-color: var(--warning, #b45309);
+  background: var(--warning-soft, color-mix(in srgb, var(--warning, #b45309) 8%, transparent));
+}
+
+.cashier-batch-tile.is-expired {
+  border-color: var(--danger, #b91c1c);
+  background: var(--danger-soft, color-mix(in srgb, var(--danger, #b91c1c) 8%, transparent));
+}
+
+/* `.is-blocked` is the LOCKED-OUT state: expired AND the company has
+ * `block_expired_batch_sale` on AND the user lacks `inventory.sell_expired`.
+ * Dimmed + cursor-not-allowed so the cashier sees it's there but can't
+ * pick it. The server-side guard in CompleteSale enforces the same. */
+.cashier-batch-tile.is-blocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+
+.cashier-batch-tile.is-blocked:hover {
+  border-color: var(--danger, #b91c1c);
+  background: var(--danger-soft, color-mix(in srgb, var(--danger, #b91c1c) 8%, transparent));
+}
+
+.cashier-batch-tile-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cashier-batch-tile-num {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cashier-batch-tile-stock {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cashier-batch-tile-expiry {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cashier-batch-tile-days {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+
+.cashier-batch-tile.is-soon .cashier-batch-tile-days {
+  background: var(--warning-soft, color-mix(in srgb, var(--warning, #b45309) 18%, transparent));
+  color: var(--warning, #b45309);
+}
+
+.cashier-batch-tile.is-expired .cashier-batch-tile-days {
+  background: var(--danger-soft, color-mix(in srgb, var(--danger, #b91c1c) 18%, transparent));
+  color: var(--danger, #b91c1c);
+}
+
+.cashier-batch-tile-prices {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.cashier-batch-tile-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Cart line: small batch label under the variant line. */
+.cashier-line-batch {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── Refund / Return modals ──────────────────────────────────────
+ * Lookup modal reuses the customer-picker chrome; refund modal is
+ * its own 2-column layout — line picker on the left, refund options
+ * on the right. */
+
+.cashier-refund-results {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.cashier-refund-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  text-align: start;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .08s;
+}
+
+.cashier-refund-result:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.cashier-refund-result-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cashier-refund-result-num {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cashier-refund-result-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.cashier-refund-result-total {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.cashier-refund-partial-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--warning-soft, color-mix(in srgb, var(--warning, #b45309) 14%, transparent));
+  color: var(--warning, #b45309);
+}
+
+/* Refund modal — wider than the standard customer/variant cards. */
+.cashier-refund-card {
+  max-width: 920px;
+  width: 95vw;
+}
+
+.cashier-refund-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+@media (max-width: 768px) {
+  .cashier-refund-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cashier-refund-lines {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-canvas);
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.cashier-refund-lines-head,
+.cashier-refund-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 80px 90px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.cashier-refund-lines-head {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.cashier-refund-line {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cashier-refund-line:last-child {
+  border-bottom: 0;
+}
+
+.cashier-refund-line-meta {
+  min-width: 0;
+}
+
+.cashier-refund-line-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-refund-line-sub {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.cashier-refund-line-qty .cashier-line-qty {
+  justify-self: end;
+}
+
+.cashier-refund-line-price,
+.cashier-refund-line-total {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: end;
+}
+
+/* Phones: the 4-column line grid (name + 140/80/90px fixed cols) can't
+   fit a narrow modal — the name column collapses to ~0 and the header
+   labels overlap. Stack each line into a card instead: product on top,
+   then the qty stepper (left) + line total (right). The column header
+   row is meaningless when stacked, so hide it; unit price drops out
+   (the line total is what matters when issuing a refund). */
+@media (max-width: 560px) {
+  .cashier-refund-lines-head { display: none; }
+  .cashier-refund-line {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "meta  meta"
+      "qty   total";
+    row-gap: 10px;
+  }
+  .cashier-refund-line-meta  { grid-area: meta; }
+  .cashier-refund-line-qty   { grid-area: qty; }
+  .cashier-refund-line-qty .cashier-line-qty { justify-self: start; }
+  .cashier-refund-line-price { display: none; }
+  .cashier-refund-line-total { grid-area: total; align-self: center; justify-self: end; }
+}
+
+/* Blind refund's line row has one extra column (an editable price,
+   where the invoice-based refund's price is fixed/read-only) plus a
+   per-line delete button the invoice flow doesn't need (that flow's
+   line list is fixed by the original sale; this one is built up scan
+   by scan). Same base grid, wider so a 5th narrow column fits. */
+.cashier-refund-line-blind {
+  grid-template-columns: minmax(0, 1fr) 140px 90px 90px 28px;
+}
+.cashier-refund-lines-empty {
+  padding: 32px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.cashier-refund-line-price-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  text-align: end;
+}
+.cashier-refund-line-remove {
+  color: var(--text-tertiary);
+}
+.cashier-refund-line-remove:hover {
+  color: var(--danger);
+}
+@media (max-width: 560px) {
+  .cashier-refund-line-blind {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "meta  meta  meta"
+      "qty   total remove";
+  }
+  .cashier-refund-line-blind .cashier-refund-line-price-input { display: none; }
+  .cashier-refund-line-blind .cashier-refund-line-remove { grid-area: remove; }
+}
+
+/* Right side: reason / method / notes / totals. */
+
+.cashier-refund-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cashier-refund-totals {
+  margin-top: 4px;
+  padding: 12px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cashier-refund-totals-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.cashier-refund-totals-grand {
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 8px;
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.cashier-pay-ref-input {
+  height: 48px;
+}
+
+.cashier-pay-hint {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: -6px;
+}
+
+.cashier-pay-icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cashier-pay-headline {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 14px;
+}
+
+.cashier-pay-subhead {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ── Payment modal v1 (legacy — `.cashier-pay-card`) ──────────── */
+
+.cashier-pay-card {
+  width: 100%;
+  max-width: 560px;
+}
+
+.cashier-pay-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 16px 18px;
+  margin: -20px -20px 18px;
+  background: linear-gradient(180deg, var(--accent-soft) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cashier-pay-hero-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.cashier-pay-hero-amount {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+  line-height: 1.1;
+}
+
+.cashier-pay-close {
+  position: absolute;
+  top: 12px;
+  inset-inline-end: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cashier-pay-close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.cashier-pay-section-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 14px 0 8px;
+}
+
+.cashier-pay-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.cashier-pay-method {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 60px;
+  padding: 0 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: start;
+  transition: border-color .12s, background .12s, box-shadow .12s;
+}
+
+.cashier-pay-method:hover {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+}
+
+.cashier-pay-method.is-picked {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.cashier-pay-method-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.cashier-pay-method-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-pay-method-check {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.cashier-pay-tendered {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.cashier-pay-tendered-input {
+  width: 100%;
+  height: 64px;
+  padding: 0 16px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  outline: none;
+  text-align: end;
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+
+.cashier-pay-tendered-input:focus {
+  border-color: var(--accent);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.cashier-pay-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cashier-pay-quick-tile {
+  flex: 1 1 90px;
+  min-width: 90px;
+  height: 44px;
+  padding: 0 12px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.cashier-pay-quick-tile:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cashier-pay-reference {
+  margin-top: 14px;
+}
+
+.cashier-pay-change {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: color-mix(in srgb, var(--success, #15803d) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success, #15803d) 30%, transparent);
+  border-radius: 10px;
+}
+
+.cashier-pay-change-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--success, #15803d);
+}
+
+.cashier-pay-change-amount {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--success, #15803d);
+}
+
+/* ── Settings-driven variants ─────────────────────────────────── */
+
+/* Beam (default) — cart on the right; sidebar hidden. */
+.cashier-layout-beam .cashier-side {
+  display: none;
+}
+
+.cashier-layout-beam .cashier-layout {
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+
+/* Lane — cart LEFT, no sidebar. DOM is sidebar → catalog → cart so we
+   use `order:` to flip the two visible items without touching markup. */
+.cashier-layout-lane .cashier-side {
+  display: none;
+}
+
+.cashier-layout-lane .cashier-layout {
+  grid-template-columns: 400px minmax(0, 1fr);
+}
+
+.cashier-layout-lane .cashier-catalog {
+  order: 2;
+}
+
+.cashier-layout-lane .cashier-cart {
+  order: 1;
+}
+
+/* Counter — three columns: vertical category rail | dense list | cart.
+   The horizontal cats chips above the layout are hidden; the sidebar
+   takes over category navigation. Matches Layout C of the canonical
+   mockup at design-system/Checkout.html. */
+.cashier-layout-counter .cashier-cats {
+  display: none;
+}
+
+.cashier-layout-counter .cashier-grid {
+  display: none;
+}
+
+.cashier-layout-counter .cashier-layout {
+  grid-template-columns: 220px minmax(0, 1fr) 400px;
+}
+
+/* Tile grid is the default view; the dense list-rows view is hidden
+   until Counter mode opts in. */
+.cashier-listrows {
+  display: none;
+}
+
+.cashier-layout-counter .cashier-listrows {
+  display: block;
+}
+
+/* Focus — action rail | cart (big, the only content pane). No product
+   catalog and no category chips at all — Focus is scan/search-driven
+   only (the toolbar's search + barcode fields sit above the whole grid,
+   unaffected by this). DOM order is rail → side(hidden) → catalog
+   (hidden) → cart; `order` keeps the rail first without touching markup. */
+.cashier-layout-focus .cashier-side,
+.cashier-layout-focus .cashier-catalog,
+.cashier-layout-focus .cashier-cats {
+  display: none;
+}
+
+.cashier-layout-focus .cashier-layout {
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.cashier-layout-focus .cashier-cart {
+  order: 1;
+}
+
+.cashier-action-rail {
+  display: none;
+}
+
+.cashier-layout-focus .cashier-action-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  order: 0;
+}
+
+.cashier-rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 4px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.cashier-rail-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+/* Only meaningful in Focus — hidden everywhere else (base rule) so it
+   doesn't show up as a stray tab on the catalog panel in Beam/Lane/
+   Counter; Focus mode is the sole override that makes it `flex`. */
+.cashier-catalog-toggle {
+  display: none;
+  position: absolute;
+  top: 50%;
+  /* Logical rewrite: was `left: -14px`. The toggle sits on the catalog
+     panel's edge that faces the cart (its inline-start edge, per the
+     order flip below); this now tracks that edge in both directions.
+     (The chevron glyph inside only rotates up/down via `rotate-180`,
+     so it needs no mirroring of its own.) */
+  inset-inline-start: -14px;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 28px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.cashier-layout-focus .cashier-catalog-toggle {
+  display: flex;
+}
+
+/* Tile density — three steps, override the grid minmax + tile padding. */
+.cashier-tiles-compact .cashier-grid {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.cashier-tiles-compact .cashier-tile {
+  padding: 8px;
+}
+
+.cashier-tiles-compact .cashier-tile-name {
+  font-size: 12.5px;
+  min-height: 28px;
+}
+
+/* Comfortable = the base rule (`minmax(150px, 1fr)`) — nothing to add. */
+
+.cashier-tiles-spacious .cashier-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.cashier-tiles-spacious .cashier-tile {
+  padding: 12px;
+}
+
+.cashier-tiles-spacious .cashier-tile-name {
+  font-size: 14px;
+  min-height: 36px;
+}
+
+/* ── Toolbar segmented control (Lane / Beam) ──────────────────── */
+
+.cashier-seg {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: stretch;
+  height: 44px;
+  padding: 3px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  gap: 2px;
+}
+
+/* Standalone camera-scan trigger in the tool strip. */
+.cashier-camera-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.cashier-camera-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+/* Camera scanner modal. */
+.cashier-camera-card { width: min(460px, 94vw); }
+.cashier-camera-stage {
+  margin-top: 14px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  aspect-ratio: 4 / 3;
+}
+.cashier-camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cashier-camera-error {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.cashier-seg>button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+
+.cashier-seg>button:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+/* Active segment — high-contrast accent fill so the cashier can see
+   which layout is currently in use at a glance. The previous
+   `var(--bg-surface)` tinted the chip with surface against the
+   canvas track which read as "no highlight" on most themes. */
+.cashier-seg>button.is-active {
+  background: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.cashier-seg>button.is-active:hover {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+
+/* Hide the text label on narrow toolbars — the icon still
+   communicates which side the cart will be on. */
+@media (max-width: 1180px) {
+  .cashier-seg-label {
+    display: none;
+  }
+
+  .cashier-seg>button {
+    padding: 0 10px;
+  }
+}
+
+/* ── Counter sidebar (vertical category rail) ─────────────────── */
+
+.cashier-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.cashier-side-head {
+  padding: 14px 16px 6px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  font-weight: 700;
+}
+
+.cashier-side-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cashier-side-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: start;
+  transition: background .12s, color .12s;
+}
+
+.cashier-side-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.cashier-side-item.is-active {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+.cashier-side-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.cashier-side-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-side-count {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* ── Dense list rows (Counter view) ───────────────────────────── */
+
+.cashier-listrows {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  background: var(--bg-canvas);
+}
+
+.cashier-listrows-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 16px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  font-weight: 700;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.cashier-listrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 16px;
+  background: var(--bg-surface);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  text-align: start;
+  transition: background 100ms ease;
+  min-height: 60px;
+}
+
+.cashier-listrow:hover {
+  background: var(--bg-hover);
+}
+
+.cashier-listrow.is-out {
+  opacity: 0.65;
+}
+
+.cashier-listrows-head .cashier-listrow-thumb,
+.cashier-listrow .cashier-listrow-thumb {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-muted, var(--bg-canvas));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+}
+
+.cashier-listrows-head .cashier-listrow-thumb {
+  background: transparent;
+  border: 0;
+}
+
+.cashier-listrow-thumb>img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cashier-listrow-mark {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cashier-listrows-head .cashier-listrow-sku,
+.cashier-listrow .cashier-listrow-sku {
+  flex: 0 0 100px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-listrows-head .cashier-listrow-name,
+.cashier-listrow .cashier-listrow-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cashier-listrow-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.cashier-listrow-title>span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-listrow-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.10);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.20);
+  flex-shrink: 0;
+}
+
+.dark .cashier-listrow-tag {
+  background: rgba(96, 165, 250, 0.18);
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.30);
+}
+
+.cashier-listrow-meta {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-listrows-head .cashier-listrow-price,
+.cashier-listrow .cashier-listrow-price {
+  flex: 0 0 110px;
+  text-align: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.cashier-listrow-price-v {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cashier-listrow-price-mrp {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.cashier-listrows-head .cashier-listrow-add,
+.cashier-listrow .cashier-listrow-add {
+  flex: 0 0 36px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.cashier-listrow .cashier-listrow-add {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  justify-content: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+  transition: background .12s, border-color .12s, color .12s, transform .08s;
+}
+
+.cashier-listrow:hover .cashier-listrow-add {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  transform: scale(1.04);
+}
+
+.cashier-listrow:active .cashier-listrow-add {
+  transform: scale(0.98);
+}
+
+/* Stock badge inside the listrow title — uses the same colour system
+   as the tile badge so the visual language is consistent across modes. */
+.cashier-listrow-stock {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dark .cashier-listrow-stock {
+  background: rgba(20, 20, 22, 0.85);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+.cashier-listrow-stock.is-low {
+  background: color-mix(in srgb, var(--warning, #F59E0B) 18%, white);
+  color: color-mix(in srgb, var(--warning, #F59E0B) 60%, black);
+  border-color: color-mix(in srgb, var(--warning, #F59E0B) 50%, transparent);
+}
+
+.dark .cashier-listrow-stock.is-low {
+  /* Opaque dark-amber chip — see `.cashier-tile-stock.is-low` above. */
+  background: color-mix(in srgb, var(--warning, #F59E0B) 30%, #141416);
+  color: color-mix(in srgb, var(--warning, #F59E0B) 85%, white);
+  border-color: color-mix(in srgb, var(--warning, #F59E0B) 55%, transparent);
+}
+
+.cashier-listrow-stock.is-out {
+  background: color-mix(in srgb, var(--danger) 18%, white);
+  color: color-mix(in srgb, var(--danger) 60%, black);
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+}
+
+.dark .cashier-listrow-stock.is-out {
+  background: color-mix(in srgb, var(--danger) 30%, #141416);
+  color: color-mix(in srgb, var(--danger) 85%, white);
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+/* ── Counter sub-header (mirrors Checkout.html L688–697) ──────── */
+
+.cashier-listrows-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  /* above the column header */
+}
+
+.cashier-listrows-sub-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  min-width: 0;
+}
+
+.cashier-listrows-sub-cat {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+
+.cashier-listrows-sub-sep {
+  color: var(--text-tertiary);
+}
+
+.cashier-listrows-sub-meta {
+  color: var(--text-tertiary);
+}
+
+.cashier-listrows-sub-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.cashier-listrows-sub-pill {
+  white-space: nowrap;
+}
+
+/* Column-header row no longer sticks to the top — the sub-header is the
+   sticky element. Keep the column header just as a visual divider. */
+.cashier-listrows-head {
+  position: static;
+}
+
+/* (The `.cashier-tile-name` `min-height: 36px` rebalance for the new
+   4:3 art is now baked into the base rule above, near the tile-art
+   block, so the cascade stays predictable.) */
+
+/* ── Cart: Order header (mockup L191–199) ─────────────────────── */
+
+.cashier-cart-order {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 8px;
+  flex-shrink: 0;
+}
+
+.cashier-cart-order-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cashier-cart-order-eyebrow {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  font-weight: 700;
+}
+
+.cashier-cart-order-id {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+
+.cashier-cart-order-draft {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.005em;
+}
+
+.cashier-cart-new[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Cart: empty state — circle-icon + 2-line copy ────────────── */
+
+.cashier-cart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px 22px;
+  gap: 8px;
+  color: var(--text-tertiary);
+}
+
+.cashier-cart-empty-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.cashier-cart-empty-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cashier-cart-empty-sub {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  max-width: 240px;
+}
+
+/* ── Cart: totals — bigger grand-total to match mockup L613 ───── */
+
+.cashier-totals-grand {
+  font-size: 22px;
+}
+
+/* ── Cart: action row — 3-up Hold · Discount · Charge ─────────
+   Matches mockup Checkout.html L314-327. All three buttons share
+   the same shape (.cashier-act-btn); the Charge variant adds the
+   accent fill. F-key shortcuts shown as inline kbd chips. */
+
+.cashier-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.cashier-act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 56px;
+  padding: 0 8px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: background .12s, border-color .12s, color .12s, box-shadow .12s;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.cashier-act-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.cashier-act-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cashier-act-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  box-shadow: 0 4px 14px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.cashier-act-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--accent-fg);
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.cashier-act-btn-primary:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* Checkout's icon is a forward-pointing `arrow-right` — "proceed" reads
+   as trailing-edge motion, so it has to point the other physical way
+   once the trailing edge flips. Class is exclusive to this one button
+   (see index.blade.php), so mirroring its <svg> is safe here. */
+:where([dir="rtl"]) .cashier-act-btn-primary svg {
+  transform: scaleX(-1);
+}
+
+.cashier-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--bg-muted, var(--bg-surface));
+  color: var(--text-tertiary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+  margin-inline-start: 2px;
+}
+
+.cashier-kbd-on-accent {
+  background: color-mix(in srgb, var(--accent-fg) 22%, transparent);
+  color: var(--accent-fg);
+  border-color: transparent;
+}
+
+/* ── Cart: customer card (mockup L203-215) ────────────────────── */
+
+.cashier-customer-card {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--bg-canvas);
+  border: 1px dashed var(--border-default);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: start;
+  transition: background .12s, border-color .12s;
+}
+
+.cashier-customer-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.cashier-customer-card.is-assigned {
+  background: var(--accent-soft);
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.cashier-customer-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.cashier-customer-card.is-assigned .cashier-customer-avatar {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.cashier-customer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.cashier-customer-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.cashier-customer-sub {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+.cashier-customer-kbd {
+  flex-shrink: 0;
+}
+
+/* ── Cart: line items — thumb + meta + (total/qty/icons) ──────── */
+
+.cashier-line {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.cashier-line:hover {
+  background: var(--bg-hover);
+}
+
+.cashier-line-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cashier-line-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cashier-line-mark {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cashier-line-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cashier-line-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cashier-line-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-line-sku {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.cashier-line-variant {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 600;
+  align-self: flex-start;
+}
+
+.cashier-line-each {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+/* Per-line tax row, just under the "$X each" line. Tertiary colour so
+   it reads as supporting info; the "(incl.)" suffix is italicised to
+   echo the totals-row hint convention. */
+.cashier-line-tax {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+/* Per-line discount indicator (Slice 4). */
+.cashier-line-disc {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.cashier-line-tax-incl {
+  font-style: italic;
+  font-size: 11px;
+  margin-inline-start: 2px;
+}
+
+/* Over-stock inline warning — plain red text under the each-price.
+   Server would also reject; this just surfaces it earlier so the
+   cashier can fix it before payment. */
+.cashier-line-error {
+  margin-top: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-rose, #e11d48);
+}
+
+.cashier-line.is-over-stock .cashier-qty-input {
+  border-color: color-mix(in oklab, var(--accent-rose, #e11d48) 50%, transparent);
+}
+
+.cashier-line-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cashier-line-total {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cashier-line-qty {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+
+.cashier-line-qty .cashier-step {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.cashier-line-qty .cashier-step:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.cashier-line-qty .cashier-qty-value {
+  min-width: 28px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editable qty input — same visual weight as the static label, but
+   click-to-edit. `-moz-appearance/none` strips Firefox's spinner so it
+   matches the +/- chevrons we already provide. */
+.cashier-line-qty .cashier-qty-input {
+  width: 38px;
+  height: 24px;
+  margin: 0 1px;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 0 4px;
+  outline: none;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.cashier-line-qty .cashier-qty-input::-webkit-outer-spin-button,
+.cashier-line-qty .cashier-qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cashier-line-qty .cashier-qty-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-ring);
+  background: var(--bg-canvas);
+}
+
+.cashier-line-icons {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.cashier-line-icon {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 0;
+  color: var(--text-tertiary);
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cashier-line-icon:hover:not(:disabled) {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+}
+
+.cashier-line-icon.is-set {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.cashier-line-icon:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* Kit components — bullet-less list under the line meta. Each item
+   reads "2× Cola (Large)" with the qty + multiplier muted. */
+.cashier-line-kit {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+
+.cashier-line-kit-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-line-kit-item>span:nth-child(3) {
+  color: var(--text-secondary);
+}
+
+.cashier-line-kit-variant {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Counter listrow KIT tag — same accent fill as the tile chip. */
+.cashier-listrow-tag-kit {
+  background: var(--accent) !important;
+  color: var(--accent-fg) !important;
+  border-color: transparent !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dark .cashier-listrow-tag-kit {
+  background: var(--accent) !important;
+  color: var(--accent-fg) !important;
+}
+
+/* Inline note under the line meta — `cashier-line-note`. The note icon
+   shows in muted form ahead of the truncated text so the cashier sees
+   at a glance which lines carry a note. */
+.cashier-line-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-style: italic;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cashier-note-card {
+  width: 100%;
+  max-width: 460px;
+}
+
+.cashier-note-textarea {
+  width: 100%;
+  height: 110px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.cashier-line-icon-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+/* ── Weight prompt (sold-by-weight items) ─────────────────────── */
+
+.cashier-weight-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.cashier-weight-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cashier-weight-input {
+  width: 100%;
+  padding-inline-end: 48px;
+  /* room for the unit suffix */
+  font-size: 22px;
+  font-weight: 600;
+  text-align: end;
+}
+
+.cashier-weight-unit {
+  position: absolute;
+  inset-inline-end: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.cashier-weight-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+/* Unit suffix on a weighed cart line's qty stepper. */
+.cashier-qty-unit {
+  font-size: 11px;
+  font-weight: 600;
+  margin-inline-start: 4px;
+}
+
+/* ── Cart: totals — restructured to mockup spec ───────────────── */
+
+.cashier-totals {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cashier-totals-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  min-height: 20px;
+}
+
+.cashier-totals-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cashier-totals-amount {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.cashier-totals-disc {
+  background: transparent;
+  border: 0;
+  text-align: start;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.cashier-totals-disc:not([disabled]):hover .cashier-totals-meta {
+  color: var(--accent);
+}
+
+.cashier-totals-disc[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cashier-totals-disc.is-set .cashier-totals-meta {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.cashier-totals-neg {
+  color: var(--success, #15803d);
+  font-weight: 600;
+}
+
+.cashier-totals-tax-hint {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.cashier-totals-sep {
+  height: 1px;
+  background: var(--border-subtle);
+  margin: 4px 0 2px;
+}
+
+.cashier-totals-grand {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.cashier-totals-grand-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cashier-totals-grand-amount {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.015em;
+}
+
+/* ── Discount modal (mockup L911-948) ─────────────────────────── */
+
+.cashier-disc-card {
+  width: 100%;
+  max-width: 460px;
+}
+
+.cashier-disc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cashier-disc-seg {
+  height: 38px;
+  margin-bottom: 14px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.cashier-disc-seg>button {
+  justify-content: center;
+  font-size: 13px;
+}
+
+.cashier-disc-presets {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cashier-disc-preset {
+  height: 42px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.cashier-disc-preset:hover {
+  background: var(--bg-hover);
+}
+
+.cashier-disc-preset.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cashier-disc-field {
+  margin-bottom: 14px;
+}
+
+.cashier-disc-input-wrap {
+  position: relative;
+}
+
+.cashier-disc-input-prefix {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: 12px;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+.cashier-disc-input {
+  padding-inline-start: 30px;
+}
+
+.cashier-disc-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+}
+
+.cashier-disc-preview-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.cashier-disc-preview-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   RESPONSIVE — tablet & mobile
+   ----------------------------------------------------------------
+   The layout-variant rules (`.cashier-layout-beam .cashier-layout`,
+   …lane, …counter) set the grid columns with (0,2,0) specificity, so
+   a plain `.cashier-layout` media rule can't override them. We prefix
+   every responsive override with `.cashier-page` (same element that
+   carries the variant class) to match that specificity, and rely on
+   this block being LAST in the file to win on source order — variant-
+   agnostic, so it holds whichever shape the cashier picked.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet: ≤1024px ──────────────────────────────────────────────
+   Two columns kept, but the cart narrows and the Counter mode drops
+   its vertical category rail back to the horizontal chips. */
+@media (max-width: 1024px) {
+
+  /* Toolbar wraps: search takes the full first row, the controls flow
+     onto the next so nothing overflows horizontally. */
+  .cashier-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .cashier-search {
+    flex: 1 1 100%;
+  }
+
+  .cashier-scan {
+    flex: 1 1 200px;
+  }
+
+  /* Unify all variants to catalog | cart, clearing Lane's order flip. */
+  .cashier-page .cashier-layout {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .cashier-page .cashier-catalog {
+    order: 0;
+  }
+
+  .cashier-page .cashier-cart {
+    order: 0;
+  }
+
+  /* Counter mode: hide the side rail, bring back the cats chips. The
+     dense list-rows view (its catalog body) stays — it reads fine in a
+     narrow column. */
+  .cashier-page .cashier-side {
+    display: none;
+  }
+
+  .cashier-page .cashier-cats {
+    display: flex;
+  }
+}
+
+/* ── Mobile / tablet-portrait: ≤768px ────────────────────────────
+   Single column. Catalog fills the top and scrolls; the cart docks
+   under it with a capped height so its lines scroll and the PAY area
+   stays reachable. Both stay on-screen — no horizontal scrolling, no
+   clipped controls. */
+@media (max-width: 768px) {
+
+  /* Scanner box + layout switcher don't earn their space on a phone —
+     the search field still catches keyboard-wedge scanner input, and
+     the stacked layout makes the Beam/Lane/Counter switch moot. */
+  .cashier-scan,
+  .cashier-seg {
+    display: none;
+  }
+
+  .cashier-search {
+    flex: 1 1 auto;
+  }
+
+  .cashier-page .cashier-layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    padding: 0;
+    gap: 0;
+  }
+
+  .cashier-page .cashier-cart,
+  .cashier-page .cashier-catalog {
+    max-height: none !important;
+    height: 100%;
+    flex: 1;
+    border: none !important;
+    border-radius: 0 !important;
+    padding-bottom: 64px !important;
+  }
+
+  /* Tabbed layout on mobile: catalog vs cart */
+  .cashier-catalog.mobile-tab-hidden,
+  .cashier-cart.mobile-tab-hidden {
+    display: none !important;
+  }
+
+  /* Denser tiles so 2–3 fit per row on a narrow screen. `.cashier-page`
+     prefix beats the `.cashier-tiles-*` density rules (also 0,2,0). */
+  .cashier-page .cashier-grid {
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+    gap: 8px;
+    padding: 12px;
+  }
+
+  /* Tighten the chrome paddings to claw back vertical space. */
+  .cashier-toolbar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .cashier-cats {
+    padding: 8px 12px;
+  }
+
+  .cashier-cart-head {
+    padding: 12px 14px;
+  }
+}
+
+/* ── Small phones: ≤420px ────────────────────────────────────────
+   Two solid columns rather than cramped thirds. */
+@media (max-width: 420px) {
+  .cashier-page .cashier-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ── Payment modal on small screens: ≤640px ──────────────────────
+   The desktop modal is a fixed 2-column (260px methods | pane) card.
+   On a phone that overflows, so we go full-width and stack: methods
+   become a horizontal chip strip on top, the active pane (cash / QR /
+   reference) takes the full width below — important so the QR code and
+   the tendered keypad aren't squeezed. */
+@media (max-width: 640px) {
+  .cashier-pay-modal {
+    max-width: 100vw;
+    width: 100%;
+    margin: 0;
+    border-radius: 0;
+    overflow-x: hidden;
+  }
+
+  .cashier-pay-body {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    overflow-x: hidden;
+  }
+
+  .cashier-pay-methods-list {
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .cashier-pay-method-row {
+    flex: 0 0 auto;
+    height: 44px;
+  }
+
+  .cashier-pay-method-sub {
+    display: none;
+  }
+
+  /* QR shrinks to fit a narrow pane instead of overflowing. */
+  .pay-qr-art img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Make toolbar dropdowns expand rightwards on mobile to avoid left cutoff */
+  .cashier-conn-popover,
+  .cashier-overflow-menu {
+    inset-inline-end: auto;
+    inset-inline-start: 0;
+  }
+}
+
+/* ── Quick picks chip row (most-sold) ──────────────────────────
+   A horizontally-scrolling strip of the store's best-sellers above the
+   product grid. Toggled by Settings → Cashier "Show Quick picks row".
+   Each chip taps straight through to addToCart(). */
+.cashier-quickpicks {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cashier-quickpicks-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.cashier-quickpicks-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+.cashier-quickpick {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
+  max-width: 220px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  transition: border-color 100ms ease, background 100ms ease, transform 60ms ease;
+}
+.cashier-quickpick:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-surface));
+}
+.cashier-quickpick:active { transform: scale(0.97); }
+.cashier-quickpick.is-out { opacity: 0.5; cursor: not-allowed; }
+
+.cashier-quickpick-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cashier-quickpick-price {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Shift gate (Slice A — shift enforcement) ───────────────────────
+   Blocking overlay shown over the cashier when the store enforces
+   shifts and none is open. Reuses .scrim/.overlay-host for the dim +
+   centring; this styles the compact card inside. */
+.cashier-shift-gate-card {
+  width: 100%;
+  max-width: 630px;
+  /* Inherits flex-column + overflow:hidden from .modal-card. Cap to the
+     dynamic viewport (dvh handles mobile browser chrome; falls back to
+     .modal-card's vh cap where unsupported), and move padding onto the
+     inner scroll container so a tall denomination grid scrolls instead
+     of clipping off-screen on short / mobile viewports. */
+  max-height: calc(100dvh - 48px);
+}
+.cashier-shift-gate-card > div {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px;
+}
+.cashier-shift-gate-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.cashier-shift-gate-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-surface));
+}
+.cashier-shift-gate-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cashier-shift-gate-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+.cashier-shift-gate-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.cashier-shift-gate-actions .pos-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+/* Escape hatch out of the gate. Quiet on purpose — opening the till is the
+   job and leaving is the exception — but a blocking modal with no way back
+   is a trap. */
+.cashier-shift-gate-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  inline-size: 100%;
+  margin-block-start: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  transition: color .12s ease;
+}
+.cashier-shift-gate-back:hover { color: var(--text-primary); }
+.cashier-shift-gate-back:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* "Leave" uses the `back` icon (a leftward arrow) — mirror it so it
+   still points toward where the cashier came from once RTL flips
+   which physical side that is. */
+:where([dir="rtl"]) .cashier-shift-gate-back svg {
+  transform: scaleX(-1);
+}
+
+/* Bound-terminal chip in the cashier toolbar (Slice B). */
+.cashier-terminal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+}
+
+.cashier-terminal-chip svg { color: var(--text-tertiary); }

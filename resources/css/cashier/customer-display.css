@@ -1,0 +1,370 @@
+/* ============================================================
+   POS — Customer-Facing Display (CFD) entry
+   The second screen turned toward the shopper. Display-only: big
+   type, high contrast, glanceable at ~1.5m. Loads the shared design
+   system (tokens + dark mode + base) then layers the CFD-specific
+   layout. RTL-safe — logical properties only.
+   See docs/features/customer-display.md.
+   ============================================================ */
+
+@import '../app.css';
+
+.cfd {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background:
+        radial-gradient(1200px 600px at 50% -10%, var(--accent-soft), transparent 60%),
+        var(--bg-page);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+/* ── Status dots ─────────────────────────────────────────── */
+.cfd-dot {
+    width: 8px; height: 8px; border-radius: 999px;
+    background: var(--positive);
+    box-shadow: 0 0 0 3px var(--positive-soft);
+    display: inline-block; flex: 0 0 auto;
+}
+.cfd-dot-accent {
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    animation: cfd-pulse 1.6s ease-in-out infinite;
+}
+@keyframes cfd-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50%      { opacity: 1;   transform: scale(1.3); }
+}
+
+/* ── Brand strip ─────────────────────────────────────────── */
+.cfd-top {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 40px;
+}
+.cfd-brand { display: flex; align-items: center; gap: 14px; }
+.cfd-logo {
+    width: 46px; height: 46px; border-radius: 12px;
+    background: var(--accent); color: var(--accent-fg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+    box-shadow: var(--shadow-card);
+}
+.cfd-logo-img { height: 44px; width: auto; max-width: 200px; object-fit: contain; }
+.cfd-store { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+.cfd-store-sub { font-size: 12.5px; color: var(--text-tertiary); margin-top: 1px; }
+.cfd-clock {
+    font-variant-numeric: tabular-nums;
+    font-size: 15px; font-weight: 500; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 10px;
+}
+.cfd-topbar-end { display: flex; align-items: center; gap: 14px; }
+.cfd-theme-btn {
+    width: 42px; height: 42px; border-radius: 11px; flex: 0 0 auto;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--text-secondary); background: transparent;
+    border: 1px solid transparent; cursor: pointer;
+    transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.cfd-theme-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border-subtle); }
+
+.cfd-stage { flex: 1 1 auto; min-height: 0; display: flex; }
+
+/* Top-bar "Open now" status (replaces the duplicated tagline). */
+.cfd-status {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12.5px; font-weight: 600; color: var(--positive); margin-top: 2px;
+}
+
+/* ============================================================
+   IDLE / ATTRACT — welcome band + framed showcase + value strip
+   over a warm, softly-animated backdrop.
+   ============================================================ */
+.cfd-idle {
+    position: relative; flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    gap: 26px; padding: 10px 40px 32px;
+    background:
+        radial-gradient(760px 420px at 50% 64%, var(--accent-soft), transparent 66%),
+        radial-gradient(1000px 560px at 86% -14%, var(--accent-soft), transparent 62%),
+        radial-gradient(820px 520px at 4% 114%, var(--positive-soft), transparent 60%);
+    overflow: hidden;
+}
+/* Faint dot-grid texture up top, masked out — the same treatment as the
+   marketing landing hero, so the two screens feel of a piece. */
+.cfd-idle::before {
+    content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background-image: radial-gradient(var(--border-default) 1px, transparent 1px);
+    background-size: 26px 26px; opacity: 0.5;
+    -webkit-mask-image: radial-gradient(ellipse 80% 55% at 50% 8%, #000 30%, transparent 76%);
+    mask-image: radial-gradient(ellipse 80% 55% at 50% 8%, #000 30%, transparent 76%);
+}
+/* Keep real content above the texture layer. */
+.cfd-idle > * { position: relative; z-index: 1; }
+
+.cfd-welcome {
+    font-size: clamp(32px, 4.6vw, 58px); font-weight: 800; letter-spacing: -0.025em;
+    color: var(--text-primary); line-height: 1.03;
+}
+.cfd-welcome .cfd-wave {
+    display: inline-block; margin-inline-end: 10px; transform-origin: 70% 70%;
+    animation: cfd-wave 2.8s ease-in-out infinite;
+}
+@keyframes cfd-wave { 0%,60%,100% { transform: rotate(0); } 10% { transform: rotate(16deg); } 20% { transform: rotate(-8deg); } 30% { transform: rotate(14deg); } 40% { transform: rotate(-4deg); } }
+.cfd-tagline { font-size: clamp(15px, 1.7vw, 20px); color: var(--text-secondary); max-width: 700px; margin-top: 10px; }
+
+/* Framed promo showcase (merchant's attract images rotate here).
+   A "matted gallery" frame: a soft outer mat holds the image on a clean
+   nested radius, so any uploaded flyer looks intentionally presented
+   rather than clipped straight to the card edge. */
+.cfd-promo {
+    position: relative;
+    width: min(1200px, 90vw); aspect-ratio: 16 / 6;
+    border-radius: 26px;
+    padding: 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    /* Warm, layered shadow — an orange-tinted glow + a soft neutral,
+       instead of a muddy grey drop-shadow. */
+    box-shadow:
+        0 30px 70px -34px rgba(234, 88, 12, 0.30),
+        0 14px 30px -20px rgba(35, 25, 15, 0.15);
+    animation: cfd-bob 7s ease-in-out infinite;
+}
+@keyframes cfd-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+/* Inner stage — clips the rotating slides to a smaller radius nested
+   inside the mat, with a hairline ring for definition. */
+.cfd-promo-stage {
+    position: relative; width: 100%; height: 100%;
+    border-radius: 15px; overflow: hidden;
+    background: var(--bg-elevated);
+    box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.cfd-promo-slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 800ms ease; }
+/* Floating "Today's offers" badge — a rounded pill sitting on the image. */
+.cfd-promo-tab {
+    position: absolute; inset-block-start: 26px; inset-inline-start: 26px; z-index: 3;
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--bg-surface); color: var(--text-primary);
+    font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+    padding: 7px 14px; border-radius: 999px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 10px 22px -12px rgba(234, 88, 12, 0.4);
+}
+.cfd-promo-tab::before { content: ''; width: 7px; height: 7px; border-radius: 999px; background: var(--accent); }
+.cfd-promo-dots { position: absolute; inset-block-end: 14px; inset-inline: 0; display: flex; gap: 6px; justify-content: center; z-index: 3; }
+.cfd-promo-dots i {
+    width: 8px; height: 8px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.6); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: width 220ms ease, background 220ms ease;
+}
+.cfd-promo-dots i.on { width: 24px; background: var(--accent); }
+
+/* Value strip — fills the base, adds a few friendly, useful notes.
+   Light, warm shadows to match the showcase. */
+.cfd-strip { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.cfd-chip {
+    display: flex; align-items: center; gap: 12px; padding: 13px 18px;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    border-radius: 15px;
+    box-shadow: 0 10px 22px -14px rgba(120, 72, 20, 0.22), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+.cfd-chip-ic { width: 38px; height: 38px; border-radius: 11px; flex: 0 0 auto; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.cfd-chip-ic svg { width: 19px; height: 19px; }
+.cfd-chip-tx { text-align: start; }
+.cfd-chip-tx b { display: block; font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.cfd-chip-tx span { font-size: 12px; color: var(--text-tertiary); }
+@media (max-width: 820px) { .cfd-strip .cfd-chip:nth-child(n+3) { display: none; } }
+
+/* ============================================================
+   ACTIVE SALE
+   ============================================================ */
+/* Neutral page surface + clean bordered cards, exactly like the cashier's
+   own cart panel (.cashier-cart) — the CFD shows the same order, so it
+   should read as the same system, not a separate marketing screen. */
+.cfd-sale {
+    flex: 1; display: grid; grid-template-columns: 1fr 380px; min-height: 0;
+    background: var(--bg-page);
+}
+
+/* -- Left: slim "just added" banner + an itemised order card -- */
+.cfd-main { min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 20px 26px 22px; }
+
+.cfd-added {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle); border-inline-start: 3px solid var(--positive);
+    border-radius: 12px; padding: 12px 18px; box-shadow: var(--shadow-card);
+}
+.cfd-added-tag {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--positive); background: var(--positive-soft); padding: 4px 10px; border-radius: 999px;
+}
+.cfd-added-name { flex: 1 1 auto; min-width: 0; font-size: clamp(16px, 1.7vw, 21px); font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cfd-added-price { flex: 0 0 auto; font-size: clamp(17px, 1.9vw, 23px); font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+.cfd-order {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px;
+    box-shadow: var(--shadow-card); overflow: hidden;
+}
+.cfd-order-top { flex: 0 0 auto; display: flex; align-items: baseline; justify-content: space-between; padding: 15px 22px 11px; }
+.cfd-order-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.cfd-order-count { font-size: 11.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+/* One column grid shared by the header + every row so they align. */
+.cfd-order-head, .cfd-row { display: grid; grid-template-columns: 1fr 68px 116px; align-items: center; gap: 16px; padding-inline: 22px; }
+.cfd-order-head {
+    flex: 0 0 auto; padding-block: 9px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary);
+    background: var(--bg-elevated); border-block: 1px solid var(--border-subtle);
+}
+.cfd-order-head .c { text-align: center; }
+.cfd-order-head .e { text-align: end; }
+.cfd-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.cfd-row { padding-block: 13px; border-bottom: 1px solid var(--border-subtle); }
+.cfd-list .cfd-row:last-child { border-bottom: none; }
+.cfd-row-item { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.cfd-row-text { min-width: 0; }
+.cfd-row-item .t { font-size: 16px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cfd-row-item .m { font-size: 12.5px; color: var(--text-tertiary); margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+/* Product thumbnail — real image over a letter tile. The letter is the
+   base layer; the image overlays it and drops itself on load error
+   (e.g. offline on a second device), so a missing image never shows a
+   broken-image icon — it falls back to the letter. */
+.cfd-thumb {
+    position: relative;
+    width: 46px; height: 46px; flex: 0 0 auto;
+    border-radius: 10px; overflow: hidden;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    display: grid; place-items: center;
+}
+.cfd-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.cfd-thumb-ph { font-size: 17px; font-weight: 700; color: var(--text-tertiary); }
+.cfd-thumb-lg { width: 54px; height: 54px; border-radius: 12px; }
+.cfd-thumb-lg .cfd-thumb-ph { font-size: 21px; }
+.cfd-row-qty { text-align: center; font-size: 15px; font-weight: 600; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.cfd-row-amt { text-align: end; font-size: 16px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.cfd-row.is-new { animation: cfd-flash 1400ms ease-out; }
+@keyframes cfd-flash {
+    0%   { background: var(--accent-soft); }
+    100% { background: transparent; }
+}
+
+/* -- Right: a clean summary card, top-aligned with the order card -- */
+.cfd-totals { min-height: 0; display: flex; flex-direction: column; padding: 20px 26px 22px 0; }
+.cfd-sum {
+    background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px;
+    box-shadow: var(--shadow-card); padding: 20px 22px;
+}
+.cfd-cust {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; margin-bottom: 18px;
+    border-radius: 14px; border: 1px solid var(--border-subtle); background: var(--bg-elevated);
+}
+.cfd-cust .av { width: 38px; height: 38px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex: 0 0 auto; }
+.cfd-cust .nm { font-size: 14.5px; font-weight: 600; color: var(--text-primary); }
+.cfd-cust .lp { font-size: 12px; color: var(--text-tertiary); margin-top: 1px; }
+.cfd-cust .pts { margin-inline-start: auto; text-align: end; }
+.cfd-cust .pts .v { font-size: 17px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.cfd-cust .pts .u { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); }
+
+.cfd-subrows { display: flex; flex-direction: column; gap: 11px; }
+.cfd-subrow { display: flex; align-items: baseline; justify-content: space-between; }
+.cfd-subrow .l { font-size: 14.5px; color: var(--text-secondary); }
+.cfd-subrow .v { font-size: 16px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.cfd-subrow.discount .v { color: var(--positive); }
+
+.cfd-divider { height: 1px; background: var(--border-subtle); margin: 16px 0; }
+
+.cfd-grand .lbl { font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+.cfd-grand .amt {
+    font-size: clamp(30px, 3.2vw, 42px); font-weight: 800; letter-spacing: -0.03em;
+    color: var(--text-primary); line-height: 1.02; margin-top: 4px;
+    font-variant-numeric: tabular-nums;
+}
+.cfd-grand .hint { margin-top: 14px; font-size: 12.5px; color: var(--text-tertiary); display: flex; align-items: center; gap: 8px; }
+
+/* ============================================================
+   PAYMENT (Slice 2)
+   ============================================================ */
+/* Clean bordered cards on the neutral page, centred — same system look
+   as the sale screen (no full-height divider, no oversized figures). */
+.cfd-pay {
+    flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+    gap: 24px; padding: 32px 44px; background: var(--bg-page);
+}
+.cfd-pay-amount {
+    flex: 0 1 460px; display: flex; flex-direction: column;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px;
+    box-shadow: var(--shadow-card); padding: 30px 34px;
+}
+.cfd-pay--noqr .cfd-pay-amount { flex: 0 1 520px; align-items: center; text-align: center; }
+.cfd-pay-eyebrow { font-size: 12.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-tertiary); }
+.cfd-pay-big {
+    font-size: clamp(40px, 5vw, 62px); font-weight: 800; letter-spacing: -0.03em; line-height: 1;
+    color: var(--text-primary); font-variant-numeric: tabular-nums; margin-top: 8px;
+}
+.cfd-pay-cash { margin-top: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.cfd-pay-cash .box { border: 1px solid var(--border-subtle); background: var(--bg-elevated); border-radius: 12px; padding: 14px 16px; }
+.cfd-pay-cash .box .k { font-size: 11.5px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; }
+.cfd-pay-cash .box .v { font-size: 23px; font-weight: 700; color: var(--text-primary); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.cfd-pay-cash .box.change .v { color: var(--positive); }
+
+.cfd-pay-qr {
+    flex: 0 0 auto;
+    background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 12px;
+    box-shadow: var(--shadow-card);
+    display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 28px 32px;
+}
+.cfd-qr-card { padding: 16px; background: #fff; border: 1px solid var(--border-subtle); border-radius: 12px; }
+.cfd-qr-card img { display: block; width: 216px; height: 216px; }
+.cfd-pay-qr .say { text-align: center; }
+.cfd-pay-qr .say .h { font-size: 21px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
+.cfd-pay-qr .say .s { font-size: 14px; color: var(--text-secondary); margin-top: 5px; max-width: 300px; }
+
+/* ============================================================
+   THANK YOU (Slice 2)
+   ============================================================ */
+.cfd-thanks {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 22px; padding: 40px; background: var(--bg-page);
+}
+.cfd-thanks .tick {
+    width: 96px; height: 96px; border-radius: 999px;
+    background: var(--positive-soft); color: var(--positive);
+    display: flex; align-items: center; justify-content: center;
+}
+.cfd-thanks-title { font-size: clamp(32px, 4vw, 50px); font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); line-height: 1.05; }
+.cfd-thanks-change {
+    display: inline-flex; align-items: baseline; gap: 10px;
+    padding: 12px 22px; border-radius: 14px; background: var(--bg-surface); border: 1px solid var(--border-subtle);
+    font-variant-numeric: tabular-nums;
+}
+.cfd-thanks-change .k { font-size: 14px; color: var(--text-secondary); }
+.cfd-thanks-change .v { font-size: 30px; font-weight: 800; color: var(--positive); }
+
+.cfd-thanks-receipt { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
+.cfd-qr-mini { padding: 12px; background: #fff; border-radius: 14px; box-shadow: var(--shadow-card); flex: 0 0 auto; }
+.cfd-qr-mini img { display: block; width: 104px; height: 104px; }
+.cfd-thanks-receipt .txt { text-align: start; }
+.cfd-thanks-receipt .txt .h { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.cfd-thanks-receipt .txt .s { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+
+/* ============================================================
+   Narrow / portrait (pole displays are often portrait): stack the
+   totals under the order instead of beside it.
+   ============================================================ */
+@media (max-width: 860px) {
+    .cfd-sale { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .cfd-totals { border-inline-start: none; border-block-start: 1px solid var(--border-subtle); }
+    .cfd-grand .amt { font-size: clamp(40px, 12vw, 64px); }
+
+    .cfd-pay { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .cfd-pay-qr { border-inline-start: none; border-block-start: 1px solid var(--border-subtle); }
+    .cfd-pay-amount { text-align: center; align-items: center; }
+}

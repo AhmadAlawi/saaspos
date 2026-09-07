@@ -1,0 +1,245 @@
+/* ============================================================
+   Admin topbar — crumbs, search trigger, action group, POS launch
+   ============================================================ */
+
+.topbar {
+  height: var(--topbar-h);
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  flex-shrink: 0;
+}
+.topbar-left  { display: flex; align-items: center; gap: 12px; min-width: 0; flex-shrink: 0; }
+.topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Secondary topbar actions — `display: contents` keeps each component a
+   direct flex child of .topbar-right (so the gap spacing is unchanged),
+   while still letting us drop them off the row on small screens. */
+.tb-secondary { display: contents; }
+
+@media (max-width: 640px) {
+  .tb-secondary { display: none; }
+  .topbar { padding: 0 12px; gap: 8px; }
+}
+
+/* Mobile hamburger (hidden on desktop). */
+.topbar-menu {
+  display: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+}
+.topbar-menu:hover { background: var(--bg-hover); color: var(--text-primary); }
+@media (max-width: 1023.98px) {
+  .topbar-menu { display: inline-flex; }
+}
+
+/* Breadcrumbs */
+.topbar .crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.topbar .crumb { font-size: 13.5px; color: var(--text-secondary); text-decoration: none; white-space: nowrap; }
+.topbar .crumb.is-current { color: var(--text-primary); font-weight: 600; }
+.topbar .crumb:hover:not(.is-current) { color: var(--text-primary); }
+.topbar .crumb-sep { color: var(--text-tertiary); font-size: 12px; opacity: 0.6; }
+
+/* Mobile breadcrumb bar — its own thin row beneath the topbar, fed by
+   <x-admin.topbar>. Hidden on desktop (the trail lives inside the bar
+   there). Placed AFTER the base crumb rules so the mobile `display: none`
+   below wins the cascade. */
+.topbar-crumbs-bar { display: none; }
+
+@media (max-width: 1023.98px) {
+  .topbar-left { min-width: 0; flex-shrink: 1; }
+
+  /* In drawer mode the hamburger is shown and the deep trail would
+     overflow the bar — move it to the dedicated row below instead. */
+  .topbar .crumbs { display: none; }
+
+  .topbar-crumbs-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    padding: 8px 16px;
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+  .topbar-crumbs-bar .crumb {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .topbar-crumbs-bar .crumb.is-current { color: var(--text-primary); font-weight: 600; }
+  .topbar-crumbs-bar .crumb-sep { color: var(--text-tertiary); font-size: 12px; opacity: 0.6; }
+}
+
+/* Header search — opens the command palette */
+.topbar-search {
+  flex: 1;
+  max-width: 460px;
+  min-width: 0;
+  margin: 0 auto 0 16px;
+  position: relative;
+  display: flex; align-items: center;
+  height: 36px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  padding: 0 8px 0 12px;
+  transition: border-color 120ms ease, background 120ms ease, box-shadow 120ms ease, color 120ms ease;
+  cursor: pointer;
+  color: var(--text-tertiary);
+  text-align: left;
+}
+.topbar-search:hover {
+  border-color: var(--border-default);
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+.topbar-search:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.topbar-search .hs-icon { color: var(--text-tertiary); display: inline-flex; flex-shrink: 0; margin-right: 10px; }
+.topbar-search .hs-placeholder {
+  flex: 1; min-width: 0;
+  font-size: 13px; color: var(--text-tertiary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.topbar-search:hover .hs-placeholder { color: var(--text-secondary); }
+.topbar-search .hs-kbd { display: inline-flex; gap: 3px; flex-shrink: 0; margin-left: 8px; }
+
+@media (max-width: 720px) { .topbar-search .hs-kbd { display: none; } }
+@media (max-width: 560px) {
+  .topbar-search {
+    flex: 0 0 36px; padding: 0;
+    width: 36px; height: 36px;
+    justify-content: center;
+    /* `margin-inline` overrides BOTH the base start (16px) and end (auto)
+       margins: push the icon to the right so it sits flush against the
+       action cluster instead of centering itself (which left a gap). */
+    margin-inline: auto 0;
+  }
+  .topbar-search .hs-placeholder { display: none; }
+  .topbar-search .hs-icon { margin: 0; }
+}
+
+/* POS-launch button (accent-filled square in topbar-right) */
+.pos-launch {
+  position: relative;
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent);
+  color: var(--accent-fg);
+  transition: background 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  box-shadow: 0 1px 2px rgba(249,115,22,0.25);
+}
+.pos-launch:hover { background: var(--accent-hover); box-shadow: 0 2px 8px -2px rgba(249,115,22,0.5); }
+.pos-launch:active { transform: translateY(1px); }
+
+/* PWA "update available" launcher — green to read as a positive, distinct
+   from the accent-colored Install / Open-POS buttons. */
+.pos-launch--update { background: var(--positive); box-shadow: none; }
+.pos-launch--update:hover { background: color-mix(in srgb, var(--positive) 86%, #000); box-shadow: none; }
+.pos-launch::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px); right: 0;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  padding: 5px 10px; border-radius: 6px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0; transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  box-shadow: var(--shadow-card);
+  z-index: 50;
+}
+.pos-launch:hover::after { opacity: 1; transform: translateY(0); transition-delay: 350ms; }
+
+.topbar-divider {
+  width: 1px; height: 24px;
+  background: var(--border-subtle);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) { .topbar-divider { display: none; } }
+
+/* Topbar variant of .icon-btn — slightly different shape than the
+   global .icon-btn defined in components/buttons.css. */
+.topbar .icon-btn {
+  position: relative;
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.topbar .icon-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-subtle); }
+.topbar .icon-btn.is-open {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+.topbar .icon-btn-dot {
+  position: absolute; top: 8px; right: 8px;
+  width: 7px; height: 7px; border-radius: 999px;
+  background: var(--accent);
+  border: 1px solid var(--bg-surface);
+}
+
+/* Count badge (failed-print queue) — a small numbered pill. */
+.topbar .icon-btn-badge {
+  position: absolute; top: 3px; right: 3px;
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border: 1px solid var(--bg-surface);
+}
+
+/* Failed-print queue rows in the popover. */
+.pq-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pq-item:last-child { border-bottom: none; }
+.pq-icon {
+  flex-shrink: 0;
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.pq-icon.is-stalled { color: var(--danger); }
+.pq-line { font-size: 13px; color: var(--text-primary); }
+.pq-attempts { font-size: 11.5px; color: var(--text-tertiary); }
+.pq-err {
+  font-size: 11.5px; color: var(--text-tertiary);
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pq-actions { display: flex; gap: 4px; flex-shrink: 0; }

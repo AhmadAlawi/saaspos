@@ -1,0 +1,488 @@
+/* ============================================================
+   POS — customer-facing payment chooser CSS
+   Loaded ONLY by resources/views/pay/*.blade.php — the page a
+   customer lands on after scanning the cashier's QR. Standalone
+   (no admin chrome, no cashier chrome), mobile-first.
+   ============================================================ */
+
+@import 'tailwindcss';
+
+@source '../views/pay/**/*.blade.php';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@import './tokens.css';
+@import './base.css';
+
+/* ── Page shell ────────────────────────────────────────────── */
+html, body { height: 100%; margin: 0; }
+.pay-body {
+    background: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+}
+
+.pay-shell {
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 16px 14px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+.pay-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 18px;
+}
+
+/* ── Merchant header ──────────────────────────────────────── */
+.pay-card-merchant {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.pay-merchant {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pay-merchant-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+}
+
+.pay-merchant-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pay-merchant-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pay-merchant-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+/* ── Amount ───────────────────────────────────────────────── */
+.pay-amount-block {
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-subtle);
+}
+
+.pay-amount-eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-top: 10px;
+}
+
+.pay-amount {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    margin-top: 4px;
+    line-height: 1.1;
+}
+
+/* ── Order summary (cart snapshot) ────────────────────────── */
+.pay-card-cart {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pay-cart-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pay-cart-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pay-cart-row-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.pay-cart-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.pay-cart-qty {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    font-variant-numeric: tabular-nums;
+}
+
+.pay-cart-line-total {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Kit / bundle contents under a line */
+.pay-cart-kit {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0 0 0 12px;
+    border-inline-start: 2px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.pay-cart-kit li {
+    font-size: 12.5px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+}
+
+.pay-cart-kit-variant {
+    color: var(--text-tertiary);
+}
+
+/* Per-line tax note */
+.pay-cart-tax-note {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Subtotal / discount / tax breakdown */
+.pay-cart-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-subtle);
+}
+
+.pay-cart-brow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.pay-cart-brow-disc {
+    color: var(--success, #15803d);
+    font-weight: 600;
+}
+
+.pay-cart-brow-muted {
+    color: var(--text-tertiary);
+    font-size: 12.5px;
+}
+
+.pay-cart-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-subtle);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Method picker ────────────────────────────────────────── */
+.pay-card-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.pay-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+
+.pay-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.pay-methods form { margin: 0; }
+
+.pay-method-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: start;
+    font-family: inherit;
+    transition: background .12s, border-color .12s, transform .08s;
+}
+
+.pay-method-btn:hover {
+    background: var(--bg-canvas);
+    border-color: var(--accent);
+}
+
+.pay-method-btn:active { transform: translateY(1px); }
+
+.pay-method-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+/* Brand tones — match the look in the mockup. */
+.pay-tone-violet { background: #6366f1; }
+.pay-tone-blue   { background: #3b82f6; }
+.pay-tone-cyan   { background: #06b6d4; }
+.pay-tone-orange { background: #f59e0b; }
+.pay-tone-sky    { background: #0ea5e9; }
+.pay-tone-slate  { background: #64748b; }
+
+.pay-method-meta {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pay-method-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+}
+
+.pay-method-caps {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pay-method-arrow {
+    font-size: 20px;
+    color: var(--text-tertiary);
+    flex-shrink: 0;
+}
+
+.pay-card-footnote {
+    margin: 4px 0 0;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-subtle);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+.pay-card-warning {
+    margin: 4px 0 0;
+    padding: 10px 12px;
+    background: color-mix(in srgb, var(--warning, #b45309) 10%, var(--bg-surface));
+    border: 1px solid color-mix(in srgb, var(--warning, #b45309) 25%, var(--border-subtle));
+    border-radius: 10px;
+    font-size: 12.5px;
+    color: var(--warning, #b45309);
+    line-height: 1.45;
+}
+
+/* ── State cards (paid / expired / no methods) ────────────── */
+.pay-card-state {
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding: 24px 18px;
+}
+
+.pay-state-paid {
+    color: var(--success, #15803d);
+    font-weight: 600;
+}
+
+.pay-state-icon {
+    font-size: 36px;
+    line-height: 1;
+    margin-bottom: 10px;
+    color: var(--success, #15803d);
+}
+
+/* ── Public price-check page (resources/views/pricing/*.blade.php) ──
+   Sibling of the pay/* customer-facing pages — same shell/card look,
+   these classes are specific to the camera-scan + result UI. ────── */
+.pricing-logo {
+    display: block;
+    max-width: 160px;
+    max-height: 64px;
+    width: auto;
+    height: auto;
+    margin: 0 0 12px;
+    object-fit: contain;
+}
+
+.pricing-video-wrap {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 4 / 3;
+}
+
+.pricing-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.pricing-video-hint {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 10px;
+    text-align: center;
+    font-size: 12.5px;
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+}
+
+.pricing-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.pricing-divider::before,
+.pricing-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-subtle);
+}
+
+.pricing-manual-form {
+    display: flex;
+    gap: 8px;
+}
+
+.pricing-manual-input {
+    flex: 1;
+    padding: 12px 14px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: 15px;
+}
+
+.pricing-result {
+    text-align: center;
+    padding: 20px 12px;
+}
+
+.pricing-result-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+}
+
+.pricing-result-price {
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--success, #15803d);
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+}
+
+.pricing-not-found {
+    text-align: center;
+    padding: 18px 12px;
+    color: var(--warning, #b45309);
+    font-size: 14px;
+}
+
+.pay-state-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.pay-state-expired {
+    background: color-mix(in srgb, var(--danger, #b91c1c) 10%, var(--bg-surface));
+    color: var(--danger, #b91c1c);
+    border-color: color-mix(in srgb, var(--danger, #b91c1c) 25%, var(--border-subtle));
+    font-weight: 600;
+}

@@ -1,0 +1,127 @@
+/* ============================================================
+   Topbar "End of day" report modal. Built from the system card
+   components (.card / .card-header / .card-title) — no bespoke
+   coloured header bars. Pairs with components/admin/day-summary.blade.php
+   + resources/js/admin/day-summary-panel.js.
+   ============================================================ */
+
+.dsum-wrap { display: inline-flex; }
+
+/* Modal card (rendered inside the global .scrim overlay-host). */
+.dsum-modal {
+  width: min(820px, calc(100vw - 32px));
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.dsum-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.dsum-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.dsum-sub   { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
+.dsum-head-actions { display: flex; align-items: center; gap: 4px; }
+.dsum-spin { animation: dsum-spin 0.7s linear infinite; }
+@keyframes dsum-spin { to { transform: rotate(360deg); } }
+
+.dsum-loading { padding: 40px; text-align: center; color: var(--text-tertiary); font-size: 13px; }
+
+.dsum-body {
+  padding: 16px;
+  overflow-y: auto;
+  background: var(--bg-canvas);
+}
+.dsum-mt { margin-top: 14px; }
+
+/* Side-by-side summary cards. */
+.dsum-cols {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* Rows inside a .card-body. */
+.dsum-rows { padding-block: 6px; }
+.dsum-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 13px;
+  border-top: 1px solid var(--border-subtle);
+}
+.dsum-rows .dsum-row:first-child { border-top: 0; }
+.dsum-row > span:first-child { color: var(--text-secondary); }
+.dsum-row .tnum { font-weight: 600; color: var(--text-primary); }
+
+/* Net row — subtle neutral emphasis (no accent fill). */
+.dsum-row.is-net {
+  margin-inline: -16px;
+  padding-inline: 16px;
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.dark .dsum-row.is-net { background: var(--bg-canvas); }
+.dsum-row.is-net > span:first-child { color: var(--text-primary); font-weight: 600; }
+.dsum-row.is-net .tnum { font-weight: 700; }
+
+/* Payment breakdown table. */
+.dsum-table { width: 100%; border-collapse: collapse; }
+.dsum-table th, .dsum-table td { padding: 10px 16px; font-size: 13px; text-align: end; }
+.dsum-table thead th {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.dsum-table tbody th { text-align: start; font-weight: 600; color: var(--text-primary); }
+.dsum-table tbody td { color: var(--text-secondary); }
+.dsum-table tbody tr + tr th, .dsum-table tbody tr + tr td { border-top: 1px solid var(--border-subtle); }
+.dsum-table .is-strong { font-weight: 700; color: var(--text-primary); }
+
+/* Profit snapshot. */
+.dsum-profit-line {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+.dsum-profit-label { font-size: 13px; color: var(--text-secondary); }
+.dsum-profit-val   { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.dsum-pct { font-size: 11.5px; color: var(--text-tertiary); }
+.dsum-profit-line.is-gross .dsum-profit-label,
+.dsum-profit-line.is-gross .dsum-profit-val { color: var(--positive); font-size: 16px; font-weight: 700; }
+.dsum-profit-line.is-net .dsum-profit-label,
+.dsum-profit-line.is-net .dsum-profit-val { color: var(--positive); font-size: 18px; font-weight: 800; }
+.dsum-profit-foot {
+  display: flex; flex-wrap: wrap; gap: 6px 18px;
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px; color: var(--text-tertiary);
+}
+.dsum-profit-foot b { color: var(--text-secondary); font-weight: 600; }
+
+/* Ops tiles. */
+.dsum-ops { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.dsum-ops > div {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 12px 6px; border-radius: 10px;
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+}
+.dsum-stat-v { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.dsum-stat-l { font-size: 11px; color: var(--text-tertiary); }
+
+.dsum-foot {
+  display: block; margin-top: 16px; text-align: center;
+  font-size: 13px; font-weight: 600; color: var(--accent); text-decoration: none;
+}
+.dsum-foot:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .dsum-cols { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,145 @@
+/* ============================================================
+   Cashier on-screen calculator (Alt+C). Modal keypad + a running
+   expression line + a tappable, persisted calculation history.
+   Pairs with resources/js/cashier/calculator.js and the calculator
+   modal in resources/views/cashier/index.blade.php.
+   ============================================================ */
+
+.calc-card {
+  width: 100%;
+  max-width: 340px;
+  padding: 20px;
+}
+
+.calc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.calc-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.calc-close { height: 26px; width: 26px; border-radius: 6px; }
+
+/* ── Screen ──────────────────────────────────────────────── */
+.calc-screen {
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 14px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+.calc-expr {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  text-align: end;
+  min-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.calc-display {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: end;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Keypad ──────────────────────────────────────────────── */
+.calc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.calc-key {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 46px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  transition: background 100ms ease, border-color 100ms ease, transform 60ms ease;
+}
+.calc-key:hover   { background: var(--bg-hover); }
+.calc-key:active  { transform: scale(0.97); }
+
+.calc-key-op {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+.dark .calc-key-op { background: var(--bg-canvas); }
+
+.calc-key-eq {
+  grid-row: span 2;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.calc-key-eq:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+
+.calc-key-zero { grid-column: span 2; }
+
+/* ── History ─────────────────────────────────────────────── */
+.calc-history {
+  margin-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+}
+.calc-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.calc-history-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.calc-history-clear {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.calc-history-clear:hover { color: var(--danger); background: var(--bg-hover); }
+
+.calc-history-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+.calc-history-item {
+  display: block;
+  width: 100%;
+  text-align: end;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.calc-history-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.calc-history-expr { white-space: nowrap; }
+
+.calc-history-empty {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 10px 0;
+}

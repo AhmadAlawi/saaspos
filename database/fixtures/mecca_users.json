@@ -1,0 +1,18 @@
+{
+    "superadmin": {
+        "name": "Ahmad Al-Alawi",
+        "email": "samialawi14@gmail.com",
+        "password_hash": "$2y$12$tUttrp3rXOMBCAAEUk9RGORb8xj1bYH6sLTd33Gy52PWwsU5sttnK"
+    },
+    "employees": [
+        { "name": "Ahmad Jasser",   "email": "ahmad.jasser@gduck.jo",   "role": "Manager", "password": "KNgsxqKQd9PA", "pin": "993947" },
+        { "name": "Odai Ahmad",     "email": "odai.ahmad@gduck.jo",     "role": "Manager", "password": "xlgOoKPw5EdR", "pin": "671028" },
+        { "name": "Yazan Ghnaimat", "email": "yazan.ghnaimat@gduck.jo", "role": "Manager", "password": "paOU7wK2TTAk", "pin": "950988" },
+        { "name": "Anas Muhasin",   "email": "anas.muhasin@gduck.jo",   "role": "Manager", "password": "iD92yo3YeOE6", "pin": "526636" },
+        { "name": "Anjad Hadi",     "email": "anjad.hadi@gduck.jo",     "role": "Cashier", "password": "lGfVuvz27BFA", "pin": "279322" },
+        { "name": "Farah Besharat", "email": "farah.besharat@gduck.jo", "role": "Cashier", "password": "bqLaKrWJt0PZ", "pin": "121292" },
+        { "name": "Janna",          "email": "janna@gduck.jo",          "role": "Cashier", "password": "5KLgfKimheZm", "pin": "373325" },
+        { "name": "Jameel",         "email": "jameel@gduck.jo",         "role": "Cashier", "password": "UdY7l3TUMDBv", "pin": "628410" },
+        { "name": "Ahmad Adwan",    "email": "ahmad.adwan@gduck.jo",    "role": "Cashier", "password": "hYbQkx9kMNap", "pin": "228390" }
+    ]
+}

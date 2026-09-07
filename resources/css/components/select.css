@@ -1,0 +1,398 @@
+/* ============================================================
+   TomSelect theme — closed state is pixel-identical to a native
+   `select.pos-input`, so adding `x-data="enhancedSelect()"` to
+   any existing styled `<select>` adds search without changing
+   how the field looks. Open state adds a clean dropdown that
+   matches the design tokens.
+
+   Pairs with resources/js/admin/select.js (enhancedSelect).
+   ============================================================ */
+
+@import 'tom-select/dist/css/tom-select.css';
+
+/* The wrapper sits in the same flow slot the native select did.
+   `position: relative` anchors the absolutely-positioned `.ts-dropdown`
+   (top:100%) to the field itself. Without it the dropdown falls back to
+   the nearest positioned ancestor — and on pages where that's far up the
+   tree (e.g. the supplier edit form) it renders near the page bottom,
+   growing the scroll area and leaving a blank gap below the footer. */
+.ts-wrapper {
+  position: relative;
+  font-size: 14px;
+}
+
+/* ── Control = the visible field. Mirror .pos-input dimensions
+      AND select.pos-input's right-padding for the chevron. ───── */
+.ts-wrapper.single .ts-control,
+.ts-wrapper.multi .ts-control {
+  position: relative;
+  background: var(--bg-surface);
+  border: none;
+  border-radius: 8px;
+  color: var(--text-primary);
+  height: -webkit-fill-available;
+  min-height: 0;
+  padding: 0 40px 0 12px;
+  /* matches select.pos-input exactly */
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: none;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+}
+
+.dark .ts-wrapper.single .ts-control,
+.dark .ts-wrapper.multi .ts-control {
+  background: var(--bg-elevated);
+}
+
+.ts-wrapper.focus .ts-control,
+.ts-wrapper.input-active .ts-control {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.ts-wrapper.disabled .ts-control {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Single-select: strip TomSelect's per-item padding/background — the
+   selected value should render exactly where a native <option>'s text
+   would. Truncate with ellipsis when the label is wider than the field.
+   Scoped to `.single` so the multi-select chip rules below aren't
+   overridden into a single-line ellipsis. */
+.ts-wrapper.single .ts-control>.item {
+  margin: 0 15px 0 0 !important;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-primary);
+  /* `line-height: 1` clipped descenders (g, p, y) once paired with the
+     `overflow: hidden` below. The control centres its content via flex,
+     so a normal line-height gives the descenders room without throwing
+     the text off-centre. */
+  line-height: 1.4;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ── Multi-select chips ────────────────────────────────────────
+   Each picked item renders as a soft-tinted pill with a remove (×)
+   button on the trailing edge. Chips wrap to multiple lines so the
+   control grows vertically rather than truncating. Designed to match
+   the system's `.prod-badge` visual language. */
+
+/* TomSelect copies the original <select>'s classes onto the wrapper,
+   so the wrapper inherits `.pos-input { height: 44px }`. For
+   multi-select that pins the box to one row and any wrapped chips
+   visually escape onto the help text below. Free the wrapper. */
+.ts-wrapper.multi.pos-input,
+.ts-wrapper.multi {
+  height: auto;
+  min-height: 44px;
+}
+
+.ts-wrapper.multi .ts-control {
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 40px 6px 8px;
+  height: auto;
+  align-items: center;
+}
+.ts-wrapper.multi .ts-control>.item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 !important;
+  padding: 3px 6px 3px 10px;
+  background: var(--accent-soft);
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dark .ts-wrapper.multi .ts-control>.item {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* The × button TomSelect appends when the `remove_button` plugin is
+   on (or when default multi behavior surfaces the remove handle). Lay
+   it out as a circular hit-target so it's easy to tap without a
+   per-pixel aim. */
+.ts-wrapper.multi .ts-control>.item .remove,
+.ts-wrapper.multi .ts-control>.item>a.remove,
+.ts-wrapper.multi .ts-control>.item.active .remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  margin-inline-start: 4px;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  font-size: 13px;
+  line-height: 1;
+  text-decoration: none;
+  transition: background 100ms ease, color 100ms ease;
+}
+.ts-wrapper.multi .ts-control>.item .remove:hover,
+.ts-wrapper.multi .ts-control>.item>a.remove:hover {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+/* The placeholder + search input area on a multi-select with no chips
+   picked yet. Sits beside (or below) the chips and shouldn't claim
+   more than what it needs. */
+.ts-wrapper.multi .ts-control>input {
+  flex: 1 1 80px;
+  min-width: 60px;
+  height: 28px;
+  align-self: center;
+}
+
+/* Force the inline input alongside the item to take ZERO space when
+   the field is closed — without this it can claim a few extra pixels
+   and shove the `.item` past the chevron's left edge. */
+.ts-wrapper.single:not(.input-active) .ts-control>input {
+  width: 0 !important;
+  flex: 0 0 0;
+}
+
+/* The inline input TomSelect injects for typing — shouldn't add space
+   when the control is closed and a value is selected. */
+.ts-wrapper .ts-control>input {
+  margin: 0 !important;
+  padding: 0 !important;
+  min-width: 0;
+  width: 4px;
+  /* collapses unless actively typing */
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-primary);
+  background: transparent;
+}
+
+.ts-wrapper.single.input-active .ts-control>input {
+  width: auto;
+}
+
+.ts-wrapper .ts-control>input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ── Chevron — drop TomSelect's default border-triangle caret and
+      paint the same SVG the native styled select uses. ────────── */
+.ts-wrapper.single .ts-control::after,
+.ts-wrapper.multi .ts-control::after {
+  content: '' !important;
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 12px;
+  width: 16px !important;
+  height: 16px !important;
+  margin: 0 !important;
+  transform: translateY(-50%);
+  pointer-events: none;
+  border: 0 !important;
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394959B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px 16px;
+}
+
+.dark .ts-wrapper.single .ts-control::after,
+.dark .ts-wrapper.multi .ts-control::after {
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A6A7AE' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Rotate the chevron up when the dropdown is open. */
+.ts-wrapper.dropdown-active .ts-control::after {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+/* ── Dropdown panel ─────────────────────────────────────────── */
+.ts-dropdown {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  box-shadow: var(--shadow-pop);
+  color: var(--text-primary);
+  margin-top: 4px;
+  padding: 4px;
+  font-size: 13px;
+  /* Sit above sticky table headers (z-index: 5 on .dt-table thead th)
+     and the generic .dropdown-panel (z-index: 50). 100 is comfortably
+     above both without competing with modal/toast layers (which we
+     keep in the 1000+ range). */
+  z-index: 100;
+}
+
+/* Flipped (opens upward) — see enhancedSelect's decideDirection(). Anchors
+   the panel to the top of the field so it never extends past the page
+   bottom and grows the scroll area. */
+.ts-wrapper.ts-dropdown-up .ts-dropdown {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.dark .ts-dropdown {
+  background: var(--bg-elevated);
+}
+
+.ts-dropdown .ts-dropdown-content {
+  padding: 0;
+}
+
+/* Search input at the top of the dropdown (added by the `dropdown_input`
+   plugin). Styled to look like a compact .pos-input. */
+.ts-dropdown .dropdown-input-wrap {
+  padding: 4px 4px 6px;
+}
+
+.ts-dropdown .dropdown-input {
+  display: block;
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.dark .ts-dropdown .dropdown-input {
+  background: var(--bg-elevated);
+}
+
+.ts-dropdown .dropdown-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+
+.ts-dropdown .dropdown-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Each option. */
+.ts-dropdown .option {
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.ts-dropdown .option.active,
+.ts-dropdown .active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.ts-dropdown .option.selected {
+  font-weight: 600;
+  background: transparent;
+  color: var(--text-primary);
+  position: relative;
+  padding-inline-end: 28px;
+}
+
+.ts-dropdown .option.selected::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 10px;
+  width: 14px;
+  height: 14px;
+  transform: translateY(-50%);
+  background: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F97316' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") no-repeat center / 14px;
+}
+
+.ts-dropdown .option.selected.active {
+  background: var(--bg-hover);
+}
+
+.ts-dropdown .option:disabled,
+.ts-dropdown .option.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Tree hierarchy arrow (↳) rendered by the auto-depth renderer in select.js. */
+.ts-dropdown .ts-tree-arrow {
+  color: var(--accent);
+  font-size: 0.85em;
+  margin-inline-end: 3px;
+  opacity: 0.8;
+}
+
+/* Outstanding-balance suffix ("Due $X") rendered beside a name by the
+   data-due renderer in select.js — a distinct colour so the owed amount
+   reads apart from the customer name (used on the customer-payment picker).
+   Shown in both the dropdown option and the selected control. */
+.ts-dropdown .option .ts-opt-due,
+.ts-control .item .ts-opt-due {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Empty-state + "X more available" footer. */
+.ts-dropdown .no-results,
+.ts-dropdown .create {
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.ts-dropdown .optgroup-header {
+  padding: 6px 10px 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+
+.plugin-dropdown_input.focus.dropdown-active .ts-control {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.ts-wrapper.focus .ts-control,
+.ts-wrapper.input-active .ts-control {
+  border-color: transparent !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.ts-wrapper.single .ts-control:focus-visible {
+  outline: none !important;
+}

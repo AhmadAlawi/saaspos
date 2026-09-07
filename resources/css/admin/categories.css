@@ -1,0 +1,322 @@
+/* ============================================================
+   Categories — two-column master-detail.
+   Left card holds the list (drag-to-reorder, filter, paginate).
+   Right card is a sticky editor; switches between an "empty"
+   state, "edit", and "new" depending on Alpine state.
+   ============================================================ */
+
+.cat-list { list-style: none; padding: 0; margin: 0; }
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  transition: background 100ms ease;
+}
+.cat-list > li:last-child .cat-row { border-bottom: none; }
+.cat-row:hover { background: var(--bg-hover); }
+
+/* Selected highlight — set reactively when this row is being edited. */
+.cat-row.is-selected { background: var(--bg-hover); }
+.cat-row.is-selected::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2.5px;
+  background: var(--accent);
+}
+
+/* Drag handle — only zone that grabs the row. Rest of the row navigates. */
+.cat-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; height: 24px;
+  border-radius: 5px;
+  color: var(--text-tertiary);
+  cursor: grab;
+  flex-shrink: 0;
+  transition: background 100ms ease, color 100ms ease;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.cat-handle:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.cat-handle:active { cursor: grabbing; }
+
+.cat-row-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  /* Resets so the same rules work whether the element is an <a> or <button>. */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Expand the click target so the whole `<li>` is clickable, not just
+   the inner button width. A transparent ::before pseudo stretches to
+   the .cat-row's full bounds — including padding — and the real
+   button click handler fires for any click that lands on it. */
+.cat-row-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+/* The drag handle + status toggle stay on top of the overlay so their
+   own clicks aren't captured by the row-open button. */
+.cat-handle,
+.cat-row-toggle {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Status toggle ──────────────────────────────────────────── */
+/* A compact pill switch on each row. Flips is_active via AJAX without
+   opening the editor. */
+.cat-row-toggle {
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-elevated);
+  padding: 0;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.cat-row-toggle:hover { border-color: var(--accent); }
+.cat-row-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.cat-row-toggle:disabled { opacity: 0.6; cursor: progress; }
+
+.cat-row-toggle-thumb {
+  display: block;
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+  transition: transform 140ms cubic-bezier(.4,0,.2,1), background 120ms ease;
+}
+.cat-row-toggle.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.cat-row-toggle.is-on .cat-row-toggle-thumb {
+  background: #fff;
+  transform: translateX(16px);
+}
+[dir="rtl"] .cat-row-toggle.is-on .cat-row-toggle-thumb {
+  transform: translateX(-16px);
+}
+
+/* When a row is inactive (toggle off), dim its label + meta so the
+   visual state matches the toggle position. Tile + toggle stay full
+   opacity so they're still clearly tappable. */
+.cat-row.is-inactive .cat-row-name,
+.cat-row.is-inactive .cat-row-meta {
+  opacity: 0.55;
+}
+.cat-row-body { flex: 1; min-width: 0; line-height: 1.3; }
+.cat-row-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cat-row-meta {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+.cat-row-meta .sep { margin-inline: 6px; }
+
+.cat-row-tag {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.cat-row-tag-muted {
+  background: transparent;
+  border: 1px dashed var(--border-default);
+  color: var(--text-tertiary);
+}
+
+/* ── Icon tile (fixed glyph, per-category color) ─────────────── */
+/* The icon glyph is the same for every row; the per-category accent
+   comes from `--cat-color`, set as an inline style on the element.
+   Falls back to a neutral tile when no color is saved. */
+.cat-tile {
+  --cat-color: var(--text-secondary);
+  width: 36px; height: 36px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--cat-color) 16%, transparent);
+  color: var(--cat-color);
+  flex-shrink: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+.cat-tile-lg {
+  width: 48px; height: 48px;
+  border-radius: 8px;
+}
+
+/* ── Color picker swatches in the editor form ────────────────── */
+.cat-swatch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cat-swatch {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  background: var(--swatch-color);
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 80ms ease, box-shadow 120ms ease;
+}
+.cat-swatch:hover { transform: scale(1.05); }
+.cat-swatch.is-active {
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--swatch-color);
+}
+.cat-swatch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+}
+
+/* ── Tree view: depth-based indent ──────────────────────────── */
+/* When `.cat-list` carries `.is-tree`, each row is padded by its
+   depth so the parent/child hierarchy is visible at a glance.
+   Depth comes from a server-emitted `data-depth` attribute. */
+.cat-list.is-tree li[data-depth="0"] .cat-row { padding-inline-start: 16px; }
+.cat-list.is-tree li[data-depth="1"] .cat-row { padding-inline-start: 40px; }
+.cat-list.is-tree li[data-depth="2"] .cat-row { padding-inline-start: 64px; }
+.cat-list.is-tree li[data-depth="3"] .cat-row { padding-inline-start: 88px; }
+.cat-list.is-tree li[data-depth="4"] .cat-row { padding-inline-start: 112px; }
+.cat-list.is-tree li[data-depth="5"] .cat-row { padding-inline-start: 136px; }
+
+/* Tree mode keeps the drag handle visible — sibling reorder is allowed.
+   `onMove` in categories-page.js rejects cross-parent drops. */
+
+/* ── SortableJS state classes ───────────────────────────────── */
+.is-dragging-ghost { opacity: 0.4; background: var(--accent-soft); }
+.is-dragging       { cursor: grabbing; }
+.is-dragged        { background: var(--bg-surface); box-shadow: var(--shadow-pop); }
+
+/* ── List empty state (zero rows in DB) ─────────────────────── */
+.cat-empty { padding: 48px 24px; text-align: center; }
+.cat-empty-icon {
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+}
+.cat-empty-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.cat-empty-sub {
+  font-size: 12px; color: var(--text-tertiary);
+  margin-top: 6px; max-width: 280px; margin-inline: auto; line-height: 1.5;
+}
+
+/* ── Right-column editor ────────────────────────────────────── */
+/* Sticks alongside the list as the user scrolls. Three visual states:
+   .is-idle  (nothing selected — small empty state)
+   .is-edit  (editing a row)
+   .is-new   (adding a row) */
+.cat-editor { position: sticky; top: 16px; }
+
+/* Header row inside the editor (tile + name + ID stack). */
+.cat-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.cat-editor-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.cat-editor-id   { font-size: 11.5px; color: var(--text-tertiary); margin-top: 2px; }
+.cat-editor-id .mono { font-family: var(--font-mono); }
+
+/* "Select a category" empty state — softer than the list-empty one. */
+.cat-editor-empty { padding: 40px 24px; text-align: center; }
+.cat-editor-empty-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  display: inline-flex; align-items: center; justify-content: center;
+  margin: 0 auto 10px;
+}
+.cat-editor-empty-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.cat-editor-empty-sub   { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+
+/* Footer row inside the editor (Delete on the start, Cancel/Save on the end). */
+.cat-editor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 14px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* ── 2-up stats inside the editor ───────────────────────────── */
+.cat-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+}
+.cat-stat {
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.cat-stat-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+.cat-stat-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  margin-top: 4px;
+}

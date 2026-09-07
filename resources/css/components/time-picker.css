@@ -1,0 +1,82 @@
+/* ============================================================
+   Themed time picker — hour / minute / AM-PM columns in a popover.
+   Pairs with the Alpine factory in resources/js/admin/time-picker.js.
+   Replaces the browser-native time / select dropdowns so time
+   fields match the design system (dark-mode + RTL via tokens).
+   ============================================================ */
+
+.time-picker {
+  position: relative;
+}
+
+/* Trigger reuses .pos-input for the field frame; flex lays the value
+   out against a caret on the trailing edge (like a select). */
+.time-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  cursor: pointer;
+  text-align: start;
+}
+
+.time-picker-caret {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.time-picker-pop {
+  width: 100%;
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline-start: 0;
+  z-index: 100;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+}
+
+.dark .time-picker-pop {
+  background: var(--bg-elevated);
+}
+
+.tp-col {
+  width: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 208px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.tp-opt {
+  min-width: 46px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  text-align: center;
+  cursor: pointer;
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.tp-opt:hover {
+  background: var(--bg-hover);
+}
+
+.tp-opt.is-active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+}

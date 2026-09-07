@@ -1,0 +1,70 @@
+/* ============================================================
+   Product label-print wizard (admin). The printable sheet itself
+   is styled by resources/css/labels.css (a standalone page).
+   ============================================================ */
+
+.label-rows {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-surface);
+}
+.dark .label-row { background: var(--bg-elevated); }
+
+.label-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label-row-qty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.label-row-qty-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.label-row-qty .pos-input { width: 84px; }
+
+.label-empty {
+  margin-top: 14px;
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary);
+  border: 1px dashed var(--border-default);
+  border-radius: 10px;
+}
+
+.label-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.label-summary {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}

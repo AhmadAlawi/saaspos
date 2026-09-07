@@ -1,0 +1,136 @@
+/* ============================================================
+   Cell peek — a small popover hung off a table cell so a list row can
+   reveal its detail (line items, allocations…) without a page load.
+
+   Shares the `rowActionsMenu` factory, so the panel is fixed-positioned
+   by JS and escapes the `.dt-scroll` / `.page` overflow clips. Pairs
+   with <x-admin.cell-peek>.
+   ============================================================ */
+
+.cell-peek {
+  display: inline-flex;
+}
+
+.cell-peek-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.6;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease;
+  /* Same reason as `.row-actions-btn`: lift the TRIGGER (not the wrapper)
+     above any full-row click overlay, so the wrapper never becomes a
+     stacking context that would trap the fixed panel inside it. */
+  position: relative;
+  z-index: 1;
+}
+
+.cell-peek-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+}
+
+.cell-peek-btn.is-open {
+  background: var(--bg-active);
+  border-color: var(--border-default);
+}
+
+.cell-peek-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.cell-peek-caret {
+  color: var(--text-tertiary);
+  transition: transform .12s ease;
+}
+
+.cell-peek-btn.is-open .cell-peek-caret {
+  transform: rotate(180deg);
+}
+
+/* `top`/`left` are written inline by JS — never set them here. */
+.cell-peek-panel {
+  position: fixed;
+  z-index: 200;
+  min-width: 240px;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  text-align: start;
+  /* Long documents scroll inside the panel rather than running off-screen. */
+  max-height: min(340px, calc(100vh - 32px));
+  overflow-y: auto;
+}
+
+.dark .cell-peek-panel {
+  background: var(--bg-elevated);
+}
+
+.cell-peek-title {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 2px 6px 6px;
+}
+
+.cell-peek-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* ── A single line inside the panel: label on the start edge, value on
+      the end edge — the shape most peeks want. ─────────────────────── */
+.cell-peek-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.cell-peek-row:hover {
+  background: var(--bg-hover);
+}
+
+.cell-peek-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Secondary line under the name — variant label, SKU, batch. */
+.cell-peek-meta {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.cell-peek-value {
+  flex: 0 0 auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-peek-empty {
+  padding: 8px 6px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}

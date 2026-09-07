@@ -1,0 +1,865 @@
+/* ── Settings ──────────────────────────────────────────────────
+   Master page: a responsive grid of group cards. Each links to its
+   detail page. Add groups in settings/index.blade.php. */
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 14px;
+}
+.settings-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  text-decoration: none;
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease;
+}
+.dark .settings-card { background-color: var(--bg-elevated); }
+.settings-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-surface));
+}
+.settings-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.settings-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.settings-card-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.settings-card-desc {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+.settings-card-arrow {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+/* Currency detail — live-preview chip that updates as the format changes. */
+.currency-preview {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+  word-break: break-all;
+}
+
+/* Regional detail — live date/time preview, updates as formats change. */
+.regional-preview-date {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.regional-preview-time {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.regional-preview-zone {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+
+/* ── Branding: accent-color picker field ─────────────────────── */
+.brand-color-field { display: inline-flex; align-items: center; gap: 12px; }
+.brand-color-swatch {
+  appearance: none; -webkit-appearance: none;
+  width: 48px; height: 48px; padding: 0;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+.brand-color-swatch::-webkit-color-swatch-wrapper { padding: 4px; }
+.brand-color-swatch::-webkit-color-swatch { border: none; border-radius: 6px; }
+.brand-color-swatch::-moz-color-swatch { border: none; border-radius: 6px; }
+.brand-color-hex { font-size: 13px; color: var(--text-secondary); min-width: 72px; }
+
+/* Suggested-color swatches (shared by accent + text color pickers). */
+.brand-swatch-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brand-swatch {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  background: var(--swatch-color);
+  border: 1px solid var(--border-default);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 80ms ease, box-shadow 120ms ease;
+}
+.brand-swatch:hover { transform: scale(1.06); }
+.brand-swatch.is-active {
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--swatch-color);
+}
+.brand-swatch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+}
+
+/* ── Branding: live preview panes ────────────────────────────────
+   Each pane hard-codes its own base palette (so it shows light/dark
+   regardless of the page's current theme) and inherits the chosen
+   accent token set from an inline `:style` binding. */
+.brand-preview {
+  position: relative;
+  border-radius: 12px;
+  padding: 30px 14px 14px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+.brand-preview-light {
+  --bg-page: #FAFAFA; --bg-surface: #FFFFFF; --bg-hover: #EFEFF1;
+  --border-default: #E1E1E4; --border-subtle: #ECECEE;
+  --text-primary: #1C1C1F; --text-secondary: #62656B; --text-tertiary: #94959B;
+}
+.brand-preview-dark {
+  --bg-page: #08090A; --bg-surface: #0D0E10; --bg-hover: #1A1B1F;
+  --border-default: #26272D; --border-subtle: #1C1D21;
+  --text-primary: #ECECEE; --text-secondary: #8A8F98; --text-tertiary: #5C5F66;
+}
+.brand-preview-tag {
+  position: absolute; inset-block-start: 9px; inset-inline-start: 12px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.bp-surface {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.bp-row { display: flex; align-items: center; gap: 10px; }
+.bp-row-split { justify-content: space-between; }
+
+.bp-nav {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600;
+  padding: 6px 10px; border-radius: 7px;
+}
+.bp-nav.is-active { background: var(--accent-soft); color: var(--accent); }
+.bp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+.bp-badge {
+  margin-inline-start: auto;
+  font-size: 11px; font-weight: 600;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--accent-soft); color: var(--accent);
+}
+
+.bp-btn {
+  font-size: 13px; font-weight: 600;
+  padding: 8px 14px; border-radius: 8px;
+  background: var(--accent); color: var(--accent-fg);
+  border: none; cursor: default;
+}
+.bp-link { font-size: 13px; font-weight: 600; color: var(--accent); cursor: default; }
+
+.bp-toggle {
+  width: 34px; height: 20px; border-radius: 999px;
+  background: var(--accent); padding: 2px;
+  display: inline-flex; align-items: center;
+}
+.bp-knob { width: 16px; height: 16px; border-radius: 50%; background: #fff; margin-inline-start: auto; }
+.bp-toggle-label { font-size: 13px; color: var(--text-secondary); }
+
+/* ── Receipt: thermal-print mini preview ────────────────────────
+   Width follows the chosen paper size via the --rcpt-w var set on
+   the frame by Alpine. The receipt itself uses a fixed monospace
+   stack so it visually echoes the on-printer output. */
+.rcpt-frame {
+  display: flex; justify-content: center;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+.rcpt {
+  width: var(--rcpt-w, 300px);
+  background: #FFFFFF;
+  color: #111;
+  padding: 14px 12px;
+  font: 12px/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+.dark .rcpt { background: #FAFAFA; color: #111; }
+.rcpt-logo {
+  text-align: center; font-weight: 700; letter-spacing: 0.04em;
+  font-size: 14px; margin-bottom: 6px;
+}
+.rcpt-header, .rcpt-footer, .rcpt-return {
+  white-space: pre-wrap;
+  text-align: center;
+  font-size: 11px;
+  margin: 4px 0;
+}
+.rcpt-return { font-size: 10px; opacity: 0.75; margin-top: 8px; }
+.rcpt-meta { display: flex; justify-content: space-between; font-size: 10.5px; opacity: 0.75; margin: 6px 0; }
+.rcpt-line { font-size: 11px; }
+.rcpt-rule { border-top: 1px dashed #999; margin: 8px 0; }
+
+.rcpt-items { display: flex; flex-direction: column; gap: 4px; }
+.rcpt-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 8px;
+}
+.rcpt-item-name { grid-column: 1 / -1; font-weight: 600; }
+.rcpt-item-code { grid-column: 1 / -1; font-size: 10px; letter-spacing: 0.02em; opacity: 0.7; }
+.rcpt-item-qty { opacity: 0.75; font-size: 11px; }
+.rcpt-item-total { text-align: end; font-variant-numeric: tabular-nums; }
+
+.rcpt-totals { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; }
+.rcpt-totals > div { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.rcpt-tax { display: flex; flex-direction: column; gap: 2px; padding-inline-start: 8px; opacity: 0.85; }
+.rcpt-tax > div { display: flex; justify-content: space-between; }
+.rcpt-total { font-weight: 700; font-size: 13px; padding-top: 4px; border-top: 1px dashed #999; }
+
+/* HSN-wise tax summary (GST) — mirror the printed receipt's layout. */
+.rcpt-hsn { font-size: 10.5px; }
+.rcpt-hsn-title { font-weight: 700; font-size: 11px; margin-bottom: 3px; }
+.rcpt-hsn-head,
+.rcpt-hsn-row { display: grid; grid-template-columns: 1fr auto auto; column-gap: 8px; font-variant-numeric: tabular-nums; }
+.rcpt-hsn-head { opacity: 0.7; font-size: 10px; border-bottom: 1px dashed #bbb; padding-bottom: 2px; margin-bottom: 2px; }
+.rcpt-hsn-head span:not(:first-child),
+.rcpt-hsn-row span:not(:first-child) { text-align: end; }
+.rcpt-hsn-row { margin-top: 2px; }
+.rcpt-hsn-row span:first-child { font-weight: 600; }
+.rcpt-hsn-comp { display: flex; justify-content: space-between; font-size: 10px; opacity: 0.7; padding-inline-start: 8px; }
+
+/* ── Cashier setting option cards ──────────────────────────────
+   Visual radio-card selectors used for layout / tile-size / theme
+   pickers on the cashier settings page.                          */
+.cashier-opt-cards {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cashier-opt-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 10px;
+  flex: 1;
+  min-width: 90px;
+  border: 2px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.dark .cashier-opt-card { background: var(--bg-elevated); }
+.cashier-opt-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border-default));
+}
+.cashier-opt-card.is-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-surface));
+}
+.dark .cashier-opt-card.is-active {
+  background: color-mix(in srgb, var(--accent) 9%, var(--bg-elevated));
+}
+.cashier-opt-card:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.cashier-opt-preview { display: flex; align-items: center; justify-content: center; }
+.cashier-opt-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.3;
+}
+.cashier-opt-card.is-active .cashier-opt-label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.rcpt-barcode {
+  text-align: center; margin-top: 10px; font-size: 14px;
+  letter-spacing: 1px; font-family: ui-monospace, monospace;
+}
+.rcpt-qr {
+  margin: 10px auto 0; width: 56px; height: 56px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #888; font-size: 10px;
+}
+
+/* ── Order-numbering settings ─────────────────────────────────── */
+
+.cashier-numbering-preview {
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cashier-numbering-preview-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.cashier-numbering-preview-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0;
+}
+
+.cashier-numbering-preview.is-empty .cashier-numbering-preview-value {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.cashier-numbering-tokens {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cashier-numbering-token {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.cashier-numbering-copy {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+
+.cashier-numbering-copy:hover {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.cashier-numbering-copy:active {
+  transform: translateY(1px);
+}
+
+.cashier-numbering-token code {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  font-size: 11.5px;
+  color: var(--text-primary);
+}
+
+.cashier-numbering-token > span {
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.cashier-numbering-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+/* ── Tooltip primitive (.pos-tip) ───────────────────────────────
+ * Small (?) button + hover/focus bubble. Triggered by Alpine
+ * `x-data="{ open: false }"` + @mouseenter/@mouseleave on the
+ * wrapping span. Bubble lives in absolute position above the
+ * trigger; pointer-events:none so it doesn't steal hover. */
+.pos-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.pos-tip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: 999px;
+  cursor: help;
+  transition: color 120ms ease, background 120ms ease;
+}
+.pos-tip-btn:hover,
+.pos-tip-btn:focus-visible {
+  color: var(--accent);
+  background: var(--accent-soft);
+  outline: none;
+}
+.pos-tip-bubble {
+  position: absolute;
+  inset-inline-start: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 30;
+  min-width: 220px;
+  max-width: 260px;
+  padding: 8px 12px;
+  background: var(--text-primary);
+  color: var(--bg-surface);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.4);
+  text-align: center;
+  pointer-events: none;
+  white-space: normal;
+}
+.pos-tip-bubble::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--text-primary);
+}
+
+/* ── UPI config form (Payment methods settings table) ───────────
+ * Sits in the table row's "Configuration" cell. Tight stack of
+ * two labeled fields + a small save button. Width is bounded so
+ * the table doesn't blow up; rows wrap on narrow viewports. */
+.pm-upi-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 260px;
+  max-width: 340px;
+}
+.pm-upi-eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.pm-upi-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pm-upi-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pm-upi-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.pm-upi-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+
+/* ── Scale settings: live barcode-decoder preview ─────────────── */
+
+.scale-preview {
+  margin-top: 4px;
+}
+
+.scale-preview-hit,
+.scale-preview-miss {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 13.5px;
+}
+
+.scale-preview-hit {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.scale-preview-miss {
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+}
+
+/* Monospace for raw barcode digits / decoded PLU. */
+.scale-preview .mono,
+input.pos-input.mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  letter-spacing: 0.5px;
+}
+
+/* ── License status: purchase-detail list ─────────────────────── */
+
+.license-detail-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.license-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 13.5px;
+}
+
+.license-detail-row:last-child {
+  border-bottom: 0;
+}
+
+.license-detail-row dt {
+  color: var(--text-secondary);
+}
+
+.license-detail-row dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: 500;
+  text-align: end;
+}
+
+
+/* ── Privacy / Terms editor + public page ─────────────────────── */
+
+.legal-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.legal-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 18px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.legal-tab:hover { color: var(--text-secondary); }
+.legal-tab.is-active {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent, #f97316);
+}
+
+/* `.card-pad-0 .card-body` (specificity 0,2,0) wins over a single-class
+   override, so we match its specificity here to bring the padding back
+   for this view. Without this the URL pill + editor sit flush against
+   the card edges. */
+.card-body.legal-body {
+  padding: 24px;
+}
+.legal-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.legal-url-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  padding: 10px 14px;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+.legal-url-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.legal-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.legal-field-help {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.legal-editor {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  min-height: 360px;
+  resize: vertical;
+}
+
+/* ── Public legal page (printable) ─────────────────────────────── */
+
+.legal-page {
+  margin: 0;
+  padding: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: #1f2937;
+  /* Soft canvas background so the white content "card" floats. */
+  background: #f3f4f6;
+  min-height: 100vh;
+}
+
+/* Centered card the rest of the page lives inside. */
+.legal-shell {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 48px 24px 64px;
+}
+
+/* ── Header ────────────────────────────────────────────────────── */
+.legal-page-head {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px 16px 0 0;
+  padding: 40px 48px 32px;
+  text-align: start;
+}
+.legal-page-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+.legal-page-brand-text {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.legal-page-logo {
+  height: 36px;
+  width: auto;
+  display: block;
+}
+.legal-page-title {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 24px 0 8px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: #111827;
+}
+.legal-page-meta {
+  font-size: 13.5px;
+  color: #6b7280;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.legal-page-meta-sep { color: #d1d5db; }
+
+/* ── Body ──────────────────────────────────────────────────────── */
+.legal-page-body {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-top: 0;
+  padding: 32px 48px 48px;
+  word-break: break-word;
+}
+
+/* ── Footer ────────────────────────────────────────────────────── */
+.legal-page-foot {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-top: 1px solid #f3f4f6;
+  border-radius: 0 0 16px 16px;
+  padding: 24px 48px 28px;
+  font-size: 13px;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.legal-page-foot-org { font-weight: 700; color: #374151; }
+.legal-page-foot-contact a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.legal-page-foot-links {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+.legal-page-foot-links a {
+  color: #6b7280;
+  text-decoration: none;
+}
+.legal-page-foot-links a:hover { color: #111827; text-decoration: underline; }
+
+/* ── Tighten the empty-body case ──────────────────────────────────
+   A short policy (one line) would otherwise leave a big white expanse
+   between header and footer — the empty `:has(:only-child)` check
+   doesn't apply because of the surrounding tags, so we just give the
+   body a sensible min-height. */
+.legal-page-body { min-height: 240px; }
+
+/* ── Mobile ───────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .legal-shell      { padding: 24px 16px 48px; }
+  .legal-page-head  { padding: 28px 24px 20px; border-radius: 12px 12px 0 0; }
+  .legal-page-body  { padding: 24px 24px 32px; }
+  .legal-page-foot  { padding: 20px 24px; border-radius: 0 0 12px 12px; }
+  .legal-page-title { font-size: 26px; }
+}
+
+/* ── Print ────────────────────────────────────────────────────── */
+@media print {
+  .legal-page       { background: #fff; }
+  .legal-shell      { padding: 0; max-width: none; }
+  .legal-page-head,
+  .legal-page-body,
+  .legal-page-foot  { border: 0; border-radius: 0; padding-inline: 0; }
+  .legal-page-foot-links { display: none; }
+}
+
+
+/* ── HugeRTE rich-text editor (legal pages) ───────────────────────
+   HugeRTE renders its own UI (toolbar, content iframe, dialogs) via
+   the oxide skin shipped at /vendor/hugerte/skins. We only need to
+   style the outer wrapper + the fallback textarea (visible if the
+   library fails to load). */
+
+.rte {
+  border-radius: 8px;
+  background: var(--bg-surface);
+  /* Reserves the editor's expected footprint so the page doesn't
+     jump when HugeRTE finishes loading and swaps in its iframe.
+     Also keeps the fallback textarea at a usable size if HugeRTE
+     fails to fetch. */
+  min-height: 460px;
+}
+
+/* HugeRTE swaps `tox-tinymce` onto its outer container; round its
+   corners to match the surrounding card. */
+.rte .tox-tinymce {
+  border-radius: 8px;
+  border-color: var(--border-default);
+}
+
+/* Graceful-degradation textarea — only visible when HugeRTE failed
+   to fetch. Styled to look like a normal `.pos-input`. */
+.rte-textarea {
+  display: block;
+  width: 100%;
+  min-height: 360px;
+  padding: 14px 18px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 1.55;
+  resize: vertical;
+}
+.rte-textarea:focus {
+  outline: 0;
+  border-color: var(--accent, #f97316);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, #f97316) 22%, transparent);
+}
+
+/* Same typography on the public legal page so the rendered output
+   matches what the merchant saw while editing. */
+.legal-page .prose p { margin: 0 0 14px; }
+.legal-page .prose h1 { font-size: 26px; font-weight: 700; margin: 24px 0 10px; line-height: 1.2; }
+.legal-page .prose h2 { font-size: 21px; font-weight: 700; margin: 22px 0 8px; line-height: 1.3; }
+.legal-page .prose h3 { font-size: 18px; font-weight: 600; margin: 18px 0 6px; }
+.legal-page .prose ul, .legal-page .prose ol { padding-inline-start: 24px; margin: 0 0 14px; }
+.legal-page .prose ul > li { list-style: disc; }
+.legal-page .prose ol > li { list-style: decimal; }
+.legal-page .prose blockquote {
+  border-inline-start: 3px solid #d1d5db;
+  padding-inline-start: 14px;
+  margin: 0 0 14px;
+  color: #4b5563;
+}
+.legal-page .prose strong, .legal-page .prose b { font-weight: 700; }
+.legal-page .prose em, .legal-page .prose i { font-style: italic; }
+.legal-page .prose s { text-decoration: line-through; }
+.legal-page .prose u { text-decoration: underline; }
+.legal-page .prose a { color: #2563eb; text-decoration: underline; }

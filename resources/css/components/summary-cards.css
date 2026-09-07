@@ -1,0 +1,68 @@
+/* ============================================================
+   Summary / KPI cards — the filterable stat row at the top of
+   list screens (Sales, Purchases, Customers, Suppliers, …).
+   Rendered by <x-admin.summary-cards>; the numbers are recomputed
+   server-side from the active filter and the row's innerHTML is
+   swapped by the filter handlers.
+   ============================================================ */
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-card);
+  min-width: 0;
+}
+
+.summary-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-card-value {
+  /* Scale with the viewport so long money amounts (e.g. COL$450.817,35)
+     stay inside the card on narrow screens instead of overflowing. */
+  font-size: clamp(17px, 2.2vw, 22px);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.15;
+  margin-top: 6px;
+  min-width: 0;
+  /* Last-resort safety: a very large amount wraps rather than spilling
+     past the card border (tabular-nums keeps the digits aligned). */
+  overflow-wrap: anywhere;
+}
+
+.summary-card-sub {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+}
+
+.summary-card--positive .summary-card-value { color: var(--positive); }
+.summary-card--warning  .summary-card-value { color: var(--warning); }
+.summary-card--danger   .summary-card-value { color: var(--danger); }
+.summary-card--accent   .summary-card-value { color: var(--accent); }
+
+/* Phones: two compact cards per row instead of one cramped column. The
+   value keeps its fluid clamp() so large amounts shrink to fit the narrow
+   half-width cards rather than overflowing. */
+@media (max-width: 640px) {
+  .summary-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .summary-card  { padding: 12px 13px; }
+  .summary-card-value { font-size: clamp(15px, 4.4vw, 19px); }
+}

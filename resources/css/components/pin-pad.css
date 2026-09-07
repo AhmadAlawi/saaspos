@@ -1,0 +1,52 @@
+/* ── PIN pad (resources/views/components/cashier/pin-pad.blade.php) ──
+   Shared by the cashier's manager-approval numpad (discount, refund)
+   AND the login screen's PIN sign-in — imported into both admin.css
+   (via admin/cashier.css) and auth.css so it renders wherever the
+   component is used, not just inside the admin/cashier bundle.
+
+   Large touch targets on purpose — this is entered at the till, often
+   under pressure with a manager standing over the cashier's shoulder. */
+.pin-pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.pin-pad-dots {
+  display: flex;
+  gap: 12px;
+}
+.pin-pad-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong, var(--border-default));
+  background: transparent;
+  transition: background-color .1s ease;
+}
+.pin-pad-dot.is-filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pin-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 12px;
+}
+.pin-pad-key {
+  height: 72px;
+  border-radius: 16px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+}
+.pin-pad-key:active {
+  background: var(--bg-elevated);
+}
+.pin-pad-key-muted {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}

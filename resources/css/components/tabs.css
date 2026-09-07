@@ -1,0 +1,44 @@
+/* ============================================================
+   Tabs (underline-style)
+   ============================================================ */
+
+.tabs {
+  display: flex; gap: 2px;
+  border-bottom: 1px solid var(--border-subtle);
+  /* Scroll the strip horizontally on narrow screens instead of letting
+     the tabs overflow the page. Scrollbar hidden for a clean look. */
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  height: 38px; padding: 0 14px;
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex; align-items: center; gap: 8px;
+  flex-shrink: 0; white-space: nowrap;
+}
+.tab:hover { color: var(--text-primary); }
+.tab.is-active { color: var(--text-primary); border-bottom-color: var(--accent); }
+
+/* Count pill on a tab ("Pending 3"). Muted until its tab is active, so the
+   strip reads as one control rather than a row of competing badges. */
+.tab-count {
+  min-inline-size: 20px;
+  block-size: 20px;
+  padding-inline: 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  color: var(--text-tertiary);
+  transition: background .12s ease, color .12s ease;
+}
+.tab.is-active .tab-count { background: var(--accent-soft); color: var(--accent); }
