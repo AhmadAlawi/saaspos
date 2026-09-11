@@ -12,6 +12,8 @@ use App\Actions\Installer\SeedInstallerEssentials;
 use App\Support\InstallState;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 /**
  * Headless equivalent of the installer wizard, for the SaaS provisioning
@@ -34,7 +36,10 @@ use Illuminate\Support\Facades\DB;
  * Required env: TENANT_COMPANY_NAME, TENANT_ADMIN_EMAIL, TENANT_ADMIN_PASSWORD.
  * Optional (sensible defaults below): TENANT_COUNTRY_CODE, TENANT_CURRENCY_CODE,
  * TENANT_TIMEZONE, TENANT_INDUSTRY, TENANT_STORE_NAME, TENANT_STORE_CODE,
- * TENANT_STORE_ADDRESS, TENANT_ADMIN_NAME.
+ * TENANT_STORE_ADDRESS, TENANT_ADMIN_NAME, TENANT_LOGO_URL (SaaS conversion
+ * plan Phase 8 — the signup wizard's uploaded logo, fetched here the same
+ * way {@see ProvisionMeccaMall::fetchToPublicDisk()} already fetches
+ * images, just from an absolute URL instead of a relative production path).
  */
 class TenantProvision extends Command
 {
@@ -75,7 +80,7 @@ class TenantProvision extends Command
         }
 
         DB::transaction(function () use ($createCompanyAndStore, $createAdmin, $attachAdmin, $companyName, $adminEmail, $adminPass) {
-            ['store_id' => $storeId] = ($createCompanyAndStore)([
+            ['company_id' => $companyId, 'store_id' => $storeId] = ($createCompanyAndStore)([
                 'company_name'       => $companyName,
                 'country_code'       => (string) env('TENANT_COUNTRY_CODE', 'JO'),
                 'base_currency_code' => (string) env('TENANT_CURRENCY_CODE', 'JOD'),
@@ -93,6 +98,8 @@ class TenantProvision extends Command
             ]);
 
             ($attachAdmin)($adminId, $storeId);
+
+            $this->fetchLogo($companyId);
         });
 
         ($seedChartOfAccounts)();
@@ -102,5 +109,32 @@ class TenantProvision extends Command
         $this->info('Tenant provisioning complete.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Fetch the wizard's uploaded logo (from the license server's public
+     * disk — this instance has no storage of its own yet) into
+     * storage/app/public and set it as the new company's logo. Never
+     * fatal — a fresh instance without a logo is fine; one that crashes
+     * mid-provisioning over a missing/unreachable image is not.
+     */
+    private function fetchLogo(int $companyId): void
+    {
+        $url = trim((string) env('TENANT_LOGO_URL', ''));
+        if ($url === '') {
+            return;
+        }
+
+        $bytes = @file_get_contents($url);
+        if ($bytes === false) {
+            return;
+        }
+
+        $extension = pathinfo(parse_url($url, PHP_URL_PATH) ?: '', PATHINFO_EXTENSION) ?: 'png';
+        $path = 'logos/'.Str::random(20).'.'.$extension;
+
+        Storage::disk('public')->put($path, $bytes);
+
+        DB::table('company')->where('id', $companyId)->update(['logo_path' => $path]);
     }
 }
