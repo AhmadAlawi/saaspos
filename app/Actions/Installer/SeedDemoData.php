@@ -4,7 +4,7 @@ namespace App\Actions\Installer;
 
 use Database\Seeders\CustomerGroupsSeeder;
 use Database\Seeders\CustomersDemoSeeder;
-use Database\Seeders\DemoCashierUserSeeder;
+use Database\Seeders\DemoRoleUsersSeeder;
 use Database\Seeders\DemoData\PharmacySeeder;
 use Database\Seeders\DemoData\RetailSeeder;
 use Database\Seeders\DemoData\SupermarketSeeder;
@@ -65,9 +65,9 @@ class SeedDemoData
         };
 
         $catalog = [
-            // A working demo cashier login (the login page shows its
+            // A working demo login per role (the login page shows their
             // credentials when demo mode is on). Self-guards on demo mode.
-            DemoCashierUserSeeder::class,
+            DemoRoleUsersSeeder::class,
             TaxesDemoSeeder::class,
             CustomerGroupsSeeder::class,
             $catalogSeeder,

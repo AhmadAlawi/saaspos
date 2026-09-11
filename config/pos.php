@@ -54,9 +54,8 @@ return [
         // install; leave it false (the default) on customer installs.
         'enabled' => env('POS_DEMO_MODE', false),
 
-        // Where the "click here" link in the demo banner points. Defaults to
-        // the Infinitie product page; override for forks via .env.
-        'website_url' => env('POS_DEMO_WEBSITE_URL', 'https://infinitietech.com'),
+        // Where the "click here" link in the demo banner points.
+        'website_url' => env('POS_DEMO_WEBSITE_URL', 'https://tillora.sphereofthesun.com'),
 
         // Google Analytics 4 Measurement ID (e.g. "G-XXXXXXXXXX") for the
         // public demo. Left empty by default and ONLY ever loaded when demo
@@ -65,19 +64,20 @@ return [
         // POS_DEMO_GA_ID in .env on the demo install to enable tracking.
         'analytics_id' => env('POS_DEMO_GA_ID', ''),
 
-        // Where the landing page's "Get it on CodeCanyon" buy buttons point.
-        // This is the whole reason the demo exists — to convert a visitor
-        // into a purchase — so it's first-class config. Override for forks
-        // via .env.
-        'purchase_url' => env('POS_DEMO_PURCHASE_URL', 'https://codecanyon.net/item/hyper-pos-laravel-point-of-sale-inventory-erp-online-offline-pos-invoicing-accounting/64055507'),
+        // Where the landing page's buy/subscribe buttons point. Tillora is
+        // subscription SaaS (Stripe Checkout via the signup wizard), not a
+        // one-time marketplace purchase — this is the whole reason the demo
+        // exists, so it's first-class config. Override for forks via .env.
+        'purchase_url' => env('POS_DEMO_PURCHASE_URL', 'https://tillora.sphereofthesun.com/pricing'),
 
-        // Specific "Extended License" buy link used by the pricing band.
-        // Falls back to purchase_url when left unset.
-        'extended_url' => env('POS_DEMO_EXTENDED_URL', 'https://codecanyon.net/cart/add_items?item_ids=64055507&license=extended'),
+        // Falls back to purchase_url when left unset — Tillora has no
+        // separate "extended license" tier, so this just points at the same
+        // signup wizard.
+        'extended_url' => env('POS_DEMO_EXTENDED_URL', 'https://tillora.sphereofthesun.com/pricing'),
 
         // "Talk to our expert" button on the landing page's customization
         // band. A wa.me link opens WhatsApp; swap for any contact URL.
-        'support_whatsapp' => env('POS_DEMO_SUPPORT_WHATSAPP', 'https://wa.me/919974692496'),
+        'support_whatsapp' => env('POS_DEMO_SUPPORT_WHATSAPP', ''),
 
         // Pre-fillable demo credentials shown on the login page when demo mode
         // is enabled. Each entry renders as a card with a "Copy & Fill" button
@@ -100,6 +100,27 @@ return [
                 'role'     => 'cashier',
                 'email'    => env('POS_DEMO_CASHIER_EMAIL', 'cashier@demo.test'),
                 'password' => env('POS_DEMO_CASHIER_PASSWORD', 'cashier1234'),
+            ],
+
+            // Manager/Stock Keeper/Accountant demo logins — seeded by
+            // DemoRoleUsersSeeder (generalizes DemoCashierUserSeeder's
+            // pattern to every role, not just Cashier), same env-driven
+            // shape. Blank by default; set the env vars on the demo install
+            // to light these up.
+            [
+                'role'     => 'manager',
+                'email'    => env('POS_DEMO_MANAGER_EMAIL', 'manager@demo.test'),
+                'password' => env('POS_DEMO_MANAGER_PASSWORD', 'manager1234'),
+            ],
+            [
+                'role'     => 'stock_keeper',
+                'email'    => env('POS_DEMO_STOCK_KEEPER_EMAIL', 'stockkeeper@demo.test'),
+                'password' => env('POS_DEMO_STOCK_KEEPER_PASSWORD', 'stock1234'),
+            ],
+            [
+                'role'     => 'accountant',
+                'email'    => env('POS_DEMO_ACCOUNTANT_EMAIL', 'accountant@demo.test'),
+                'password' => env('POS_DEMO_ACCOUNTANT_PASSWORD', 'account1234'),
             ],
         ],
 
