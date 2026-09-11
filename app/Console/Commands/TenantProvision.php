@@ -2,12 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Demo\ResetDemoData;
 use App\Actions\Installer\AttachAdminToStore;
 use App\Actions\Installer\CreateAdminUser;
 use App\Actions\Installer\CreateCompanyAndStore;
 use App\Actions\Installer\LinkPublicStorage;
 use App\Actions\Installer\LockInstaller;
 use App\Actions\Installer\SeedChartOfAccounts;
+use App\Actions\Installer\SeedDemoData;
 use App\Actions\Installer\SeedInstallerEssentials;
 use App\Support\InstallState;
 use Illuminate\Console\Command;
@@ -40,6 +42,15 @@ use Illuminate\Support\Str;
  * plan Phase 8 — the signup wizard's uploaded logo, fetched here the same
  * way {@see ProvisionMeccaMall::fetchToPublicDisk()} already fetches
  * images, just from an absolute URL instead of a relative production path).
+ *
+ * TENANT_SEED_DEMO (optional, "none"|"minimal"|"full", default "none") —
+ * runs {@see SeedDemoData} after the admin/store exist, same as the
+ * installer wizard's own Step 6. Used by the public live-demo instance
+ * (POS_DEMO_MODE=true) to arrive pre-stocked instead of empty; a real
+ * customer's tenant just leaves this unset. When POS_DEMO_MODE is also on,
+ * this command finishes by capturing a demo baseline snapshot
+ * ({@see ResetDemoData::capture()}) so the nightly reset has something to
+ * restore to from the very first boot.
  */
 class TenantProvision extends Command
 {
@@ -55,6 +66,8 @@ class TenantProvision extends Command
         SeedChartOfAccounts $seedChartOfAccounts,
         LinkPublicStorage $linkStorage,
         LockInstaller $lockInstaller,
+        SeedDemoData $seedDemoData,
+        ResetDemoData $resetDemoData,
     ): int {
         if (InstallState::isLocked()) {
             $this->info('Already provisioned — skipping.');
@@ -104,7 +117,24 @@ class TenantProvision extends Command
 
         ($seedChartOfAccounts)();
         ($linkStorage)();
+
+        $demoMode = (string) env('TENANT_SEED_DEMO', 'none');
+        if (in_array($demoMode, ['minimal', 'full'], true)) {
+            $industry = (string) env('TENANT_INDUSTRY', 'retail');
+            foreach ($seedDemoData->seedersFor($demoMode, $industry) as $seederClass) {
+                (new $seederClass())->run();
+            }
+            $this->info("Demo data seeded (mode: {$demoMode}, industry: {$industry}).");
+        }
+
         ($lockInstaller)();
+
+        if (config('pos.demo.enabled')) {
+            $log = $resetDemoData->capture();
+            $this->info($log->status === 'success'
+                ? 'Demo baseline snapshot captured.'
+                : 'Demo baseline snapshot FAILED: '.($log->error_message ?? 'unknown error'));
+        }
 
         $this->info('Tenant provisioning complete.');
 
