@@ -92,18 +92,43 @@ class TenantProvision extends Command
             return self::FAILURE;
         }
 
-        DB::transaction(function () use ($createCompanyAndStore, $createAdmin, $attachAdmin, $companyName, $adminEmail, $adminPass) {
-            ['company_id' => $companyId, 'store_id' => $storeId] = ($createCompanyAndStore)([
-                'company_name'       => $companyName,
-                'country_code'       => (string) env('TENANT_COUNTRY_CODE', 'JO'),
-                'base_currency_code' => (string) env('TENANT_CURRENCY_CODE', 'JOD'),
-                'timezone'           => (string) env('TENANT_TIMEZONE', 'Asia/Amman'),
-                'industry'           => (string) env('TENANT_INDUSTRY', 'retail'),
-                'store_name'         => (string) env('TENANT_STORE_NAME', $companyName.' — Main'),
-                'store_code'         => (string) env('TENANT_STORE_CODE', 'MAIN'),
-                'store_address'      => (string) env('TENANT_STORE_ADDRESS', ''),
-            ]);
+        // Resumable after a partial failure (e.g. a later step throws after
+        // this transaction already committed — confirmed live 2026-09-11,
+        // a demo-seeder DI bug left company/store/admin created but the
+        // command exited non-zero, and InstallState was never locked
+        // because LockInstaller runs after demo seeding). Re-running
+        // CreateCompanyAndStore against an existing company would just
+        // insert a duplicate — skip straight to reading back what a prior
+        // attempt already created instead.
+        $existingCompanyId = DB::table('company')->orderBy('id')->value('id');
 
+        if ($existingCompanyId !== null) {
+            $companyId = $existingCompanyId;
+            $storeId   = DB::table('stores')->where('company_id', $companyId)->orderBy('id')->value('id');
+            $this->info('Company/store already exist from a prior attempt — reusing them.');
+        } else {
+            DB::transaction(function () use ($createCompanyAndStore, $companyName, $adminEmail, &$companyId, &$storeId) {
+                ['company_id' => $companyId, 'store_id' => $storeId] = ($createCompanyAndStore)([
+                    'company_name'       => $companyName,
+                    'country_code'       => (string) env('TENANT_COUNTRY_CODE', 'JO'),
+                    'base_currency_code' => (string) env('TENANT_CURRENCY_CODE', 'JOD'),
+                    'timezone'           => (string) env('TENANT_TIMEZONE', 'Asia/Amman'),
+                    'industry'           => (string) env('TENANT_INDUSTRY', 'retail'),
+                    'store_name'         => (string) env('TENANT_STORE_NAME', $companyName.' — Main'),
+                    'store_code'         => (string) env('TENANT_STORE_CODE', 'MAIN'),
+                    'store_address'      => (string) env('TENANT_STORE_ADDRESS', ''),
+                ]);
+
+                $this->fetchLogo($companyId);
+            });
+        }
+
+        // Same resumability concern as the company/store above — only
+        // create the admin if a prior attempt didn't already.
+        $existingAdminId = DB::table('users')->where('email', $adminEmail)->value('id');
+        if ($existingAdminId !== null) {
+            $this->info('Admin user already exists from a prior attempt — reusing it.');
+        } else {
             $adminId = ($createAdmin)([
                 'name'     => (string) env('TENANT_ADMIN_NAME', 'Admin'),
                 'email'    => $adminEmail,
@@ -111,9 +136,7 @@ class TenantProvision extends Command
             ]);
 
             ($attachAdmin)($adminId, $storeId);
-
-            $this->fetchLogo($companyId);
-        });
+        }
 
         ($seedChartOfAccounts)();
         ($linkStorage)();
@@ -122,7 +145,13 @@ class TenantProvision extends Command
         if (in_array($demoMode, ['minimal', 'full'], true)) {
             $industry = (string) env('TENANT_INDUSTRY', 'retail');
             foreach ($seedDemoData->seedersFor($demoMode, $industry) as $seederClass) {
-                (new $seederClass())->run();
+                // Some demo seeders (e.g. CustomersDemoSeeder) type-hint
+                // dependencies on run() itself, relying on Laravel's
+                // container-based method injection — the same mechanism
+                // $this->call() uses internally inside a real Seeder chain.
+                // A bare `(new $seederClass())->run()` bypasses that and
+                // throws "too few arguments".
+                app()->call([new $seederClass(), 'run']);
             }
             $this->info("Demo data seeded (mode: {$demoMode}, industry: {$industry}).");
         }
