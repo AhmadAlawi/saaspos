@@ -104,7 +104,10 @@ class TenantProvision extends Command
 
         if ($existingCompanyId !== null) {
             $companyId = $existingCompanyId;
-            $storeId   = DB::table('stores')->where('company_id', $companyId)->orderBy('id')->value('id');
+            // Single-tenant design — one company per instance, `stores`
+            // has no company_id column to filter by (Company::current()
+            // is the app-wide singleton pattern this schema assumes).
+            $storeId = DB::table('stores')->orderBy('id')->value('id');
             $this->info('Company/store already exist from a prior attempt — reusing them.');
         } else {
             DB::transaction(function () use ($createCompanyAndStore, $companyName, $adminEmail, &$companyId, &$storeId) {
