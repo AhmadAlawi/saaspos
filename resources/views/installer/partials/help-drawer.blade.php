@@ -37,7 +37,7 @@
 
     <div class="installer-help-foot">
         <span class="fg-tertiary">{{ __('installer.footer.need_help') }}</span>
-        <a href="https://infinitietech.com/support" target="_blank" rel="noopener"
+        <a href="https://tillora.sphereofthesun.com" target="_blank" rel="noopener"
            class="font-medium accent hover:underline underline-offset-2">{{ __('installer.footer.contact_support') }}</a>
     </div>
 </aside>

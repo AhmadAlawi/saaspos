@@ -14,7 +14,7 @@ use RuntimeException;
  * RazorpayClient — the per-provider folder layout keeps an upstream
  * change to a single-file diff.
  *
- * Why not the official SDK: a self-hosted POS sold on CodeCanyon
+ * Why not the official SDK: a self-hosted POS install
  * can't assume the customer can run `composer install` on their
  * production server. Raw HTTP updates via shipped code.
  *

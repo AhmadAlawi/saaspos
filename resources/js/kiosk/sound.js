@@ -7,7 +7,7 @@
  * We generate the tones with the Web Audio API rather than shipping .mp3 files
  * because (a) the kiosk runs offline from a service worker and an un-cached
  * audio asset would silently fail, (b) it keeps the bundle free of binaries a
- * CodeCanyon buyer has to license, and (c) two oscillators cost nothing.
+ * self-hosted install has to license, and (c) two oscillators cost nothing.
  *
  * Browsers refuse to start an AudioContext outside a user gesture, so the
  * context is created lazily on the first tap (which is exactly when the first

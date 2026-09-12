@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Seeds the `drug_schedules` table with the common regulatory codes
- * from the major regions a CodeCanyon customer is likely to install
+ * from the major regions a self-hosted customer is likely to install
  * in. Idempotent — keyed by `code`, so a re-run updates names /
  * descriptions but doesn't duplicate rows.
  *

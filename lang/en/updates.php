@@ -68,7 +68,7 @@ return [
 
     'manual' => [
         'title'         => 'Update manually',
-        'sub'           => "No internet to our update server, or you have the new version's .zip from CodeCanyon? Upload it here.",
+        'sub'           => "No internet to our update server, or you already have the new version's .zip? Upload it here.",
         'choose_file'   => 'Update package (.zip)',
         'dropzone'      => 'Drop your update .zip here, or click to browse',
         'dropzone_hint' => 'ZIP file only',

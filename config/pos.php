@@ -142,9 +142,14 @@ return [
 
     'updater' => [
 
-        // The update feed. env-overridable for forks / staging; defaults to
-        // the canonical endpoint shipped with the product.
-        'feed_url' => env('POS_UPDATE_FEED_URL', 'https://updates.infinitietech.com/pos.json'),
+        // The update feed. env-overridable for forks / staging.
+        // TODO (update-push system, not yet built): this endpoint doesn't
+        // exist yet — was previously defaulting to the old vendor's dead
+        // updates.infinitietech.com, silently failing every check. Point
+        // this at a real Tillora/SMT-controlled feed once that system is
+        // built; until then leave POS_UPDATE_FEED_URL unset in production
+        // rather than pointing at a domain nobody here controls.
+        'feed_url' => env('POS_UPDATE_FEED_URL', ''),
 
         // Base64-encoded Ed25519 public key used to verify release signatures.
         // Populated at release time; empty here until the signing key exists,
@@ -186,12 +191,12 @@ return [
     'license' => [
 
         // Master switch for license enforcement. When false the installer skips
-        // the purchase-code step entirely and the background re-check no-ops —
+        // the license-key step entirely and the background re-check no-ops —
         // useful for free / internal builds or offline development.
         //
-        // ON: the CodeCanyon item is live (see item_id below), so the installer
-        // asks for a purchase code and validates it against the validator
-        // server. Set POS_LICENSE_REQUIRED=false in .env to disable on a
+        // ON: the installer asks for a license key (issued by
+        // SmtLicenseServer on signup) and validates it against `check_url`
+        // below. Set POS_LICENSE_REQUIRED=false in .env to disable on a
         // fork / internal build.
         'required' => env('POS_LICENSE_REQUIRED', true),
 
@@ -204,7 +209,7 @@ return [
 
         // Panel-side license verification.
         //
-        // `required` above governs the INSTALLER's one-time purchase-code step.
+        // `required` above governs the INSTALLER's one-time license-key step.
         // This flag governs everything the RUNNING app does with that code:
         //   - the background re-check (and its "Re-check now" button),
         //   - the Settings → License screen,
@@ -240,14 +245,18 @@ return [
         //   Headers: X-License-Key, X-Instance-Fingerprint, X-Timestamp, X-Signature
         // The server replies with `{status: 'valid'|'invalid'|'suspended'|
         // 'past_due', plan: {...}, seats: {...}, features: {...}, ...}`.
-        'check_url' => env('POS_LICENSE_CHECK_URL', 'https://validator.infinitietech.com/home/validator'),
-
-        // The product / item identifier the validator binds the key to.
-        // The legacy CI codebase called this `WEB_CODE`; in this build
-        // it's `POS_LICENSE_ITEM_ID` in `.env` and reads from here at
-        // runtime. Required by the validator — without it every check
-        // comes back invalid.
-        'item_id' => env('POS_LICENSE_ITEM_ID', '64055507'),
+        // Confirmed live (2026-09-12): this was defaulting to the old
+        // Envato/CodeCanyon-era validator (validator.infinitietech.com),
+        // which SmtLicenseServer (the actual license server every SaaS
+        // tenant should be checking against) never provisioned an override
+        // for — meaning every tenant's license phone-home has been hitting
+        // a dead endpoint since Phase 7. Masked by the "never lock the
+        // app" policy (an unreachable check just preserves last-known
+        // status), so it never surfaced as a visible failure. Now defaults
+        // to the real endpoint; ProvisionInstance also sets
+        // POS_LICENSE_CHECK_URL explicitly per tenant so this default is
+        // only ever a fallback for local dev.
+        'check_url' => env('POS_LICENSE_CHECK_URL', 'https://tillora.sphereofthesun.com/api/v1/instances/validate'),
 
         // Seconds to wait on the license server before giving up. Offline
         // activation has been removed in this build; an unreachable server

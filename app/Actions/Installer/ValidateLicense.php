@@ -49,7 +49,6 @@ class ValidateLicense
         $result = $this->client->check([
             'license_key' => $key,
             'install_url' => $installUrl,
-            'item_id'     => (string) config('pos.license.item_id', ''),
             'ip'          => request()->ip(),
             'fingerprint' => $fingerprint,
             'version'     => (string) config('pos.version', '1.0.0'),
@@ -66,33 +65,18 @@ class ValidateLicense
         }
 
         $body = $result['body'] ?? [];
-        // Validator contract:
-        //   { error: 0, purchase_code, token, username, item_id, … } on valid
-        //   { error: 1, message: '…' }                                on invalid
-        // The legacy `status: 'valid'` shape is still accepted as a
-        // fallback for forks running the older protocol — same outcome
-        // so existing tests + dev-mode stubs keep working.
-        $valid = (isset($body['error']) && (int) $body['error'] === 0)
-              || (($body['status'] ?? null) === 'valid');
+        // SmtLicenseServer's contract: { status: 'valid'|'invalid'|
+        // 'suspended'|'past_due', plan: {...}, seats: {...}, features:
+        // {...}, ... }. No item_id / purchase_code — this instance's
+        // license_key alone is enough to identify which product/customer
+        // it belongs to server-side.
+        $valid = ($body['status'] ?? null) === 'valid';
 
-        // Invalid code: pass the server's own message through to the UI. This
-        // must run BEFORE the item_id check — an invalid response carries no
-        // item_id, so checking it first always masked the real message with
-        // the generic `errors.invalid` string.
         if (! $valid) {
             return [
                 'ok'     => false,
                 'error'  => $body['message'] ?? __('installer.license.errors.invalid'),
-                'reason' => $body['reason'] ?? 'invalid',
-            ];
-        }
-
-        // Valid code — confirm it was issued for THIS product before accepting.
-        if ((string) ($body['item_id'] ?? '') !== (string) config('pos.license.item_id', '')) {
-            return [
-                'ok'     => false,
-                'error'  => __('installer.license.errors.invalid'),
-                'reason' => 'item_mismatch',
+                'reason' => $body['reason'] ?? $body['status'] ?? 'invalid',
             ];
         }
 

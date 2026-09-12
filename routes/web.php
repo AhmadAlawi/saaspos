@@ -181,16 +181,16 @@ Route::get('/storage-link', function (\App\Actions\Installer\LinkPublicStorage $
 // Once installed, an authenticated user goes to the dashboard and everyone
 // else to login. (Always redirecting to /login looped: /login's `guest`
 // middleware bounces a signed-in user straight back to /.)
+//
+// Used to show LandingController's bundled marketing page here when
+// POS_DEMO_MODE=true — dropped (2026-09-12): every instance (demo
+// included) is now reached via Tillora's own subscription marketing site
+// first, so a tenant's own root showing separate, contradictory marketing
+// copy ("own outright, never a monthly fee" — a one-time-purchase pitch,
+// not the subscription model this instance actually runs under) served no
+// purpose and was actively misleading. LandingController itself is left
+// in place, unrouted, in case a self-hosted fork ever wants it back.
 Route::get('/', function () {
-    // On the public demo (POS_DEMO_MODE=true) the root URL shows the
-    // marketing landing page first — to everyone, signed in or not — so
-    // visitors who arrive at the live demo see the product pitch before
-    // the app. On a real customer install demo mode is off, so this
-    // collapses back to the usual login / dashboard redirect.
-    if (pos_is_demo()) {
-        return app(\App\Http\Controllers\LandingController::class)->index();
-    }
-
     return auth()->check()
         ? redirect()->route('admin.dashboard')
         : redirect()->route('login');

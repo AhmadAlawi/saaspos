@@ -56,7 +56,7 @@ class LicenseClient
             return ['ok' => false, 'reason' => 'unreachable', 'error' => __('installer.license.errors.no_server')];
         }
 
-        $licenseKey = (string) ($payload['license_key'] ?? $payload['purchase_code'] ?? '');
+        $licenseKey = (string) ($payload['license_key'] ?? '');
         $secret     = (string) config('pos.license.hmac_secret', '');
         if ($licenseKey === '' || $secret === '') {
             return ['ok' => false, 'reason' => 'not_configured', 'error' => __('installer.license.errors.no_server')];
@@ -67,7 +67,6 @@ class LicenseClient
             'domain_url'  => $payload['install_url'] ?? $payload['domain_url'] ?? null,
             'fingerprint' => $payload['fingerprint'] ?? null,
             'version'     => $payload['version'] ?? null,
-            'item_id'     => $payload['item_id'] ?? (string) config('pos.license.item_id', ''),
             'usage'       => $payload['usage'] ?? null,
         ], fn ($v) => $v !== null && $v !== '');
 

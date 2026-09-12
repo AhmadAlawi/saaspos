@@ -14,7 +14,7 @@ use RuntimeException;
  * field, this is the only file that needs editing — drop in the
  * change, ship the update to customers, done.
  *
- * Why not an SDK: a self-hosted POS sold on CodeCanyon can't assume
+ * Why not an SDK: a self-hosted POS install can't assume
  * customers run `composer install` against a production server. The
  * SDK would update via composer; raw HTTP updates via shipped code.
  * Plus the surface we need is small — three endpoints.

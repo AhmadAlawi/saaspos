@@ -53,7 +53,7 @@
         @if ($canStartOver)
             <a href="{{ route('install.welcome') }}" class="pos-btn pos-btn-ghost">{{ __('installer.error.start_over') }}</a>
         @endif
-        <a href="https://infinitietech.com/support" target="_blank" rel="noopener"
+        <a href="https://tillora.sphereofthesun.com" target="_blank" rel="noopener"
            class="text-[13px] font-medium accent hover:underline underline-offset-2 ms-auto">
             {{ __('installer.footer.contact_support') }}
         </a>

@@ -13,7 +13,7 @@ return [
     'steps' => [
         'welcome' => 'Welcome',
         'requirements' => 'Requirements',
-        'license' => 'Purchase code',
+        'license' => 'License key',
         'database' => 'Database',
         'admin' => 'Admin',
         'demo' => 'Demo data',
@@ -33,17 +33,17 @@ return [
     ],
 
     'license' => [
-        'heading' => 'Purchase code',
-        'subheading' => 'Enter the purchase code from your CodeCanyon receipt to activate your copy.',
+        'heading' => 'License key',
+        'subheading' => 'Enter your license key to activate this install.',
         'dev_notice_title' => 'Development mode',
-        'dev_notice' => 'Developer bypass is ON (POS_LICENSE_DEV_BYPASS=true): any non-empty code is accepted and the validation server is not contacted. Turn it off in .env for real validation.',
-        'key_label' => 'Purchase code',
-        'key_hint' => 'Found on CodeCanyon under Downloads → License certificate & purchase code. The code is case-sensitive — avoid trailing spaces.',
+        'dev_notice' => 'Developer bypass is ON (POS_LICENSE_DEV_BYPASS=true): any non-empty key is accepted and the validation server is not contacted. Turn it off in .env for real validation.',
+        'key_label' => 'License key',
+        'key_hint' => 'Found in your account dashboard after signing up. The key is case-sensitive — avoid trailing spaces.',
         'validate' => 'Validate and continue',
-        'validating' => 'Verifying purchase code…',
+        'validating' => 'Verifying license key…',
         'errors' => [
-            'required'     => 'Purchase code is required.',
-            'invalid'      => 'This purchase code is not valid for this product.',
+            'required'     => 'License key is required.',
+            'invalid'      => 'This license key is not valid for this product.',
             'unreachable'  => 'Could not reach the validation server. Please check your connection and try again.',
             'no_server'    => 'No validation server is configured.',
             'http'         => 'The validation server returned an error (HTTP :status). Please try again shortly.',
@@ -160,6 +160,6 @@ return [
         'rerun_q'    => 'How do I run the installer again?',
         'rerun_a'    => 'Delete the file storage/app/private/.install-locked on your server, then visit the site again. (This does not erase data — only re-opens the wizard.)',
         'license_q'  => 'Where do I find my license key?',
-        'license_a'  => 'Open your CodeCanyon account, go to the Downloads section, and download the License certificate for this item. The Purchase code inside that file is your license key — paste it on the license step.',
+        'license_a'  => 'Sign in to your account dashboard — your license key is shown there. Paste it on the license step.',
     ],
 ];

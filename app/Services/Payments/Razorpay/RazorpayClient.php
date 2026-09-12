@@ -14,7 +14,7 @@ use RuntimeException;
  * per-provider folder layout exists so a single upstream change is a
  * single-file diff we can ship to customers.
  *
- * Why not the official SDK: a self-hosted POS sold on CodeCanyon
+ * Why not the official SDK: a self-hosted POS install
  * can't assume the customer can run `composer install` against their
  * production server. Raw HTTP updates via shipped code.
  *
