@@ -29,7 +29,10 @@
          page boots, enabling: page-loads-while-offline, "Add to home
          screen" install flow, and SW update prompts. --}}
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="{{ $brandColor ?: '#3b82f6' }}">
+    <meta name="theme-color" content="{{ $brandColor ?: '#214944' }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
 
     @if ($faviconUrl)
         <link rel="icon" href="{{ $faviconUrl }}">

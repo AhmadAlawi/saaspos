@@ -43,7 +43,10 @@
          is registered by admin.js (startPwa); it's the same SW the cashier
          uses. The Install button lives in the topbar (x-data="pwaInstall"). --}}
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="{{ $brandColor ?: '#3b82f6' }}">
+    <meta name="theme-color" content="{{ $brandColor ?: '#214944' }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     {{-- The store's own logo when we could render one, else the shipped icon. --}}
     <link rel="apple-touch-icon" href="{{ app_icon_url(192) }}">
     <title>{{ $title ?: __('admin.app_title') }} — {{ $appName }}</title>
