@@ -6,7 +6,7 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   color: var(--text-primary);
-  border-radius: 8px;
+  border-radius: 10px;
   height: 44px;
   padding-inline: 12px;
   font-size: 14px;
@@ -66,7 +66,7 @@ select.pos-input option:disabled { color: var(--text-tertiary); }
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
   color: var(--text-secondary);
-  border-radius: 8px;
+  border-radius: 10px;
   height: 44px;
   width: 100%;
   font-size: 14px;

@@ -16,7 +16,7 @@
 .summary-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px 16px;
   box-shadow: var(--shadow-card);
   min-width: 0;
