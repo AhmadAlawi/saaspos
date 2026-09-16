@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          accent: '#214944',
+          accentHover: '#16302C',
+          cta: '#9CFF1E',
+          ctaFg: '#112623',
+        },
+      },
+    },
+  };
+</script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+</style>
+</head>
+<body class="bg-[#F2F5EF] text-[#112623] antialiased">
+
+  <header class="bg-accent text-white">
+    <div class="max-w-4xl mx-auto px-5 py-5 flex items-center gap-3">
+      <img id="brandLogo" src="" alt="" class="h-8 w-auto hidden">
+      <span id="brandName" class="text-lg font-bold">POS</span>
+      <span class="ml-auto text-sm text-white/70">Documentation</span>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-5 py-10">
+
+    <h1 class="text-2xl font-bold mb-2">Getting started</h1>
+    <p class="text-[#5C7A76] mb-10">A short guide to setting up your store — hardware setup (receipt printers) is the section most people need first.</p>
+
+    <nav class="flex flex-wrap gap-2 mb-10 text-sm">
+      <a href="#printer-setup" class="px-3 py-1.5 rounded-lg bg-white border border-[#D5DDD2] hover:border-accent transition-colors">Printer setup</a>
+      <a href="#pairing" class="px-3 py-1.5 rounded-lg bg-white border border-[#D5DDD2] hover:border-accent transition-colors">Pairing the printer</a>
+      <a href="#troubleshooting" class="px-3 py-1.5 rounded-lg bg-white border border-[#D5DDD2] hover:border-accent transition-colors">Troubleshooting</a>
+      <a href="#fallback" class="px-3 py-1.5 rounded-lg bg-white border border-[#D5DDD2] hover:border-accent transition-colors">No thermal printer?</a>
+    </nav>
+
+    <section id="printer-setup" class="mb-12">
+      <h2 class="text-xl font-bold mb-3">Receipt printer setup (Windows)</h2>
+      <p class="mb-4">
+        The cashier screen talks to USB thermal receipt printers directly from the browser (Chrome or Edge) —
+        no separate print software needed. On Windows, the printer's normal manufacturer driver blocks this
+        direct connection, so first you need to install a <strong>WinUSB</strong> driver for the printer using
+        a free tool called <strong>Zadig</strong>.
+      </p>
+
+      <div class="bg-white border border-[#D5DDD2] rounded-xl p-5 mb-6">
+        <p class="text-sm text-[#5C7A76] mb-2">Step 1 — Download Zadig</p>
+        <a href="https://zadig.akeo.ie/" target="_blank" rel="noopener"
+           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cta text-ctaFg font-semibold text-sm hover:brightness-95 transition">
+          Download Zadig → zadig.akeo.ie
+        </a>
+        <p class="text-xs text-[#8CA39F] mt-2">Official site. No installation needed — it's a single .exe you run directly.</p>
+      </div>
+
+      <ol class="list-decimal list-inside space-y-3 text-[#112623]">
+        <li>Plug the receipt printer into a USB port and turn it on.</li>
+        <li>Run <code class="bg-[#E9EDE7] px-1.5 py-0.5 rounded">zadig-2.x.exe</code> (no install required).</li>
+        <li>In Zadig, open <strong>Options → List All Devices</strong> and tick the box.</li>
+        <li>From the device dropdown, find your printer (often shows as "POS Printer", "USB Printer", or the manufacturer's name — Epson, Star, Bixolon, or a generic name for Chinese ESC/POS printers).</li>
+        <li>In the driver box on the right, choose <strong>WinUSB</strong>.</li>
+        <li>Click <strong>Install Driver</strong> (or <strong>Replace Driver</strong> if one is already listed).</li>
+        <li>Wait for it to finish — this only needs to be done once per printer, per computer.</li>
+      </ol>
+    </section>
+
+    <section id="pairing" class="mb-12">
+      <h2 class="text-xl font-bold mb-3">Pairing the printer with the POS</h2>
+      <ol class="list-decimal list-inside space-y-3">
+        <li>Open the cashier screen (or <strong>Settings → Terminals</strong> in the back office).</li>
+        <li>Click <strong>Pair printer</strong> — the browser shows a device picker.</li>
+        <li>Select your printer from the list and click <strong>Connect</strong>.</li>
+        <li>Use <strong>Test print</strong> to confirm — a short test receipt should print immediately.</li>
+      </ol>
+      <p class="mt-4 text-sm text-[#5C7A76]">
+        This pairing is remembered per browser/computer. If you switch computers or reinstall the browser, pair again (Zadig step is not needed again unless the printer driver reverts).
+      </p>
+    </section>
+
+    <section id="troubleshooting" class="mb-12">
+      <h2 class="text-xl font-bold mb-3">Troubleshooting</h2>
+      <ul class="list-disc list-inside space-y-2">
+        <li><strong>Printer doesn't show up in Zadig:</strong> make sure "List All Devices" is checked in Options, and the printer is powered on and plugged in directly (not through an unpowered USB hub).</li>
+        <li><strong>Printer doesn't show up in the browser's pairing picker:</strong> the WinUSB driver install (Zadig) didn't take — repeat the Zadig steps and pick the exact device again.</li>
+        <li><strong>Nothing prints after pairing:</strong> use Test Print in Settings → Terminals; if that also fails, unplug/replug the printer and re-pair.</li>
+        <li><strong>Windows reinstalled the original driver after a reboot:</strong> re-run Zadig and reinstall WinUSB for that device.</li>
+      </ul>
+    </section>
+
+    <section id="fallback" class="mb-12">
+      <h2 class="text-xl font-bold mb-3">No thermal printer / skipping Zadig</h2>
+      <p>
+        A thermal printer isn't required. Without one paired, receipts print through the normal browser print
+        dialog to any regular printer connected to the computer — slower and less "receipt-shaped," but works
+        with zero setup.
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-[#D5DDD2] py-8 text-center text-sm text-[#8CA39F]">
+    <span id="brandFooter">POS</span> — Documentation
+  </footer>
+
+  <script>
+    fetch('/documentation-brand')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data) return;
+        if (data.name) {
+          document.getElementById('brandName').textContent = data.name;
+          document.getElementById('brandFooter').textContent = data.name;
+          document.title = data.name + ' — Documentation';
+        }
+        if (data.logo) {
+          const img = document.getElementById('brandLogo');
+          img.src = data.logo;
+          img.classList.remove('hidden');
+        }
+      })
+      .catch(() => {});
+  </script>
+
+</body>
+</html>
