@@ -49,6 +49,12 @@ COPY docker/supervisor-scheduler.conf /opt/docker/etc/supervisor.d/laravel-sched
 # bootstrap — nginx has to route /mobile-api/* to it explicitly.
 COPY docker/mobile-api-vhost.conf /opt/docker/etc/nginx/vhost.common.d/10-mobile-api.conf
 
+# public/documentation/ is a real static directory (index.html + future
+# sub-pages) — without an explicit `index` directive for it, nginx's default
+# location block treats a bare directory match as "found" by try_files
+# before ever trying index.html, and serves a 403 (autoindex off) instead.
+COPY docker/documentation-vhost.conf /opt/docker/etc/nginx/vhost.common.d/11-documentation.conf
+
 # Runs migrations + tenant:provision on every deploy, then hands off to the
 # image's normal supervisord entrypoint (nginx + php-fpm + scheduler).
 COPY docker-entrypoint.sh /opt/docker/provision/entrypoint.d/30-tenant.sh
