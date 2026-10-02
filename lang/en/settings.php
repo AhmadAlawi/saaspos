@@ -235,6 +235,14 @@ return [
             'title' => 'Pricing',
             'desc'  => 'Cost-to-selling automation — auto-update selling price when goods are received at a new cost.',
         ],
+        'loyalty' => [
+            'title' => 'Loyalty points',
+            'desc'  => 'Turn on points, and set how fast customers earn and redeem them.',
+        ],
+        'apple_wallet' => [
+            'title' => 'Apple Wallet',
+            'desc'  => 'Let customers add their loyalty card to iPhone Wallet.',
+        ],
         'numbering' => [
             'title' => 'Order numbering',
             'desc'  => 'Customise the receipt number format for completed sales and held orders.',
@@ -743,6 +751,55 @@ return [
         ],
         'actions' => ['save' => 'Save changes'],
         'flash'   => ['updated' => 'Pricing settings updated.'],
+    ],
+
+    'loyalty' => [
+        'title' => 'Loyalty points',
+        'sub'   => 'Points are earned on completed sales and redeemed as a checkout discount — the redeemed value never affects tax.',
+        'sections' => [
+            'main'     => 'Program',
+            'main_sub' => 'Off by default — no rate applies until you turn this on.',
+        ],
+        'fields' => [
+            'loyalty_enabled'      => 'Loyalty points enabled',
+            'loyalty_earn_rate'    => 'Points earned per 1 currency unit spent',
+            'loyalty_earn_rate_help' => 'Applied to the sale subtotal after discounts, before tax. E.g. 1 = a JOD25 sale earns 25 points.',
+            'loyalty_redeem_rate'  => 'Points required per 1 currency unit redeemed',
+            'loyalty_redeem_rate_help' => 'E.g. 100 = 100 points redeems JOD1 off at checkout.',
+        ],
+        'actions' => ['save' => 'Save changes'],
+        'flash'   => ['updated' => 'Loyalty settings updated.'],
+    ],
+
+    'apple_wallet' => [
+        'title' => 'Apple Wallet',
+        'sub'   => 'Signs a real .pkpass loyalty card customers can add to iPhone Wallet — requires an Apple Developer account (paid, apple.com/developer) and a Pass Type ID certificate issued from it.',
+        'sections' => [
+            'main'     => 'Credentials',
+            'main_sub' => 'From your Apple Developer account\'s Certificates, Identifiers & Profiles page.',
+            'passfast'     => 'PassFast (alternative — no certificate needed)',
+            'passfast_sub' => 'Skips owning an Apple certificate — PassFast signs the pass for you via their API. Wins over the certificate above when both are filled in.',
+        ],
+        'fields' => [
+            'enabled'       => 'Apple Wallet card enabled',
+            'team_id'       => 'Team ID',
+            'pass_type_id'  => 'Pass Type Identifier',
+            'cert'          => 'Pass Type ID certificate (.p12)',
+            'cert_present'  => 'A certificate is on file — upload a new one to replace it.',
+            'cert_missing'  => 'No certificate on file yet — wallet cards can\'t be generated until one is uploaded.',
+            'cert_password' => 'Certificate password',
+            'cert_password_placeholder' => 'Leave blank to keep the existing password',
+            'passfast_api_key'      => 'PassFast API key',
+            'passfast_key_present'  => 'A key is on file — enter a new one to replace it',
+            'passfast_template_id'  => 'PassFast template ID',
+            'passfast_template_id_help' => 'Design the pass layout once in PassFast\'s own dashboard (points field, member name, Code128 barcode), then paste its template ID here.',
+            'passfast_app_id'      => 'PassFast App ID (if you have multiple apps)',
+            'passfast_app_id_help' => 'Only needed if your PassFast account has more than one app — check Dashboard → Settings. Leave blank otherwise.',
+        ],
+        'help' => 'The certificate is stored outside the public web root and never exposed to the browser.',
+        'passfast_help' => 'The API key is encrypted at rest, same as the certificate password above.',
+        'actions' => ['save' => 'Save changes'],
+        'flash'   => ['updated' => 'Apple Wallet settings updated.'],
     ],
 
     'currency' => [

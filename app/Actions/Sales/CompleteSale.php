@@ -5,9 +5,8 @@ namespace App\Actions\Sales;
 use App\Actions\Inventory\RecordStockMovement;
 use App\Exceptions\CreditLimitExceeded;
 use App\Exceptions\CreditRequiresCustomer;
-use App\Exceptions\DiscountAboveThreshold;
-use App\Exceptions\DiscountNotAllowed;
 use App\Exceptions\ExpiredBatchSale;
+use App\Exceptions\InsufficientLoyaltyPoints;
 use App\Exceptions\InsufficientStock;
 use App\Exceptions\ShiftRequired;
 use App\Models\Company;
@@ -25,7 +24,6 @@ use App\Models\Shift;
 use App\Models\StockLevel;
 use App\Models\Store;
 use App\Models\User;
-use App\Services\Sales\DiscountApprovalToken;
 use App\Services\Tax\TaxResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -104,6 +102,7 @@ class CompleteSale
         private readonly RecordStockMovement $recordMovement,
         private readonly PriceCart $priceCart,
         private readonly ResolveProductPrice $resolvePrice,
+        private readonly AuthorizeDiscount $authorizeDiscount,
     ) {}
 
     public function __invoke(array $header, array $lines, array $payments, ?User $user = null): Sale
@@ -256,68 +255,55 @@ class CompleteSale
             $itemsToInsert = [];
 
             // ── Discount governance (Checkout discounts, Slices 1 + 2). ──
-            // Any discount needs `sales.discount`; a discount above the
-            // store's threshold needs `sales.discount_above_threshold` OR a
-            // valid manager-approval token (Slice 2). Enforced server-side
-            // so the client checks can't be bypassed.
-            $discountApprovedBy = null;
-            if (bccomp($discountTotal, '0', 4) > 0) {
-                // Effective discount % against the pre-discount gross.
-                $gross = '0';
-                foreach ($priced->lines as $pl) {
-                    $gross = bcadd(
-                        $gross,
-                        bcmul((string) ($pl['raw']['quantity'] ?? '0'), (string) ($pl['raw']['unit_price'] ?? '0'), 8),
-                        8,
+            // Shared with the QR/card payment-session endpoint via
+            // {@see AuthorizeDiscount} — see its doc-comment for why that
+            // sharing matters (a charge and its saved sale must never be
+            // able to disagree on whether a discount was authorized).
+            $customerId = isset($header['customer_id']) && $header['customer_id'] !== ''
+                ? (int) $header['customer_id'] : null;
+
+            $discountApprovedBy = $this->authorizeDiscount->handle(
+                $priced,
+                $store,
+                $customerId,
+                $header['discount_approval'] ?? null,
+            );
+
+            // Locked once, reused below by the credit-limit check too —
+            // a single customer row shouldn't be fetched-and-locked
+            // twice in the same transaction.
+            $customer = $customerId
+                ? Customer::query()->lockForUpdate()->find($customerId)
+                : null;
+
+            // ── Loyalty points redemption. Deliberately NOT folded into
+            // PriceCart's discount handling — a discount there reduces
+            // the TAXABLE base (net = gross − discount, tax computed
+            // after), which would wrongly shrink tax owed on a purchase
+            // partly paid with points. Instead this subtracts straight
+            // from the already-tax-computed $grandTotal, same as a
+            // gift-card/store-credit tender would. Capped at the grand
+            // total itself — redeeming can't produce a negative sale.
+            $pointsRedeemed = (int) ($header['points_redeemed'] ?? 0);
+            $pointsRedeemedValue = '0';
+            if ($pointsRedeemed > 0) {
+                if (! $customer) {
+                    throw new RuntimeException('Points can only be redeemed by an attached customer.');
+                }
+                if ($pointsRedeemed > (int) $customer->loyalty_points) {
+                    throw new InsufficientLoyaltyPoints(
+                        customerName: (string) $customer->name,
+                        available:    (int) $customer->loyalty_points,
+                        requested:    $pointsRedeemed,
                     );
                 }
-                $effectivePct = bccomp($gross, '0', 4) > 0
-                    ? bcdiv(bcmul($discountTotal, '100', 8), $gross, 4)
+
+                $redeemRate = (string) ($company->loyalty_redeem_rate ?? '100');
+                $rawValue = bccomp($redeemRate, '0', 4) > 0
+                    ? bcdiv((string) $pointsRedeemed, $redeemRate, 4)
                     : '0';
-
-                // A customer's admin-configured default discount is pre-
-                // authorized: a discount within it needs neither `sales.discount`
-                // nor manager approval (the cashier just picked the customer).
-                // Read from the actual customer row — NOT a client-sent value —
-                // so it can't be spoofed to widen the exemption. The 0.05% hair
-                // absorbs 4-dp rounding on the effective-percent computation.
-                $customerId = isset($header['customer_id']) && $header['customer_id'] !== ''
-                    ? (int) $header['customer_id'] : null;
-                $customerDefaultPct = $customerId
-                    ? (string) (Customer::whereKey($customerId)->value('default_discount_percent') ?? '0')
-                    : '0';
-                $exemptCeiling = bccomp($customerDefaultPct, '0', 4) > 0
-                    ? bcadd($customerDefaultPct, '0.05', 4)
-                    : '0';
-
-                // Only the portion beyond the pre-authorized default is
-                // cashier-initiated → govern it. Every such discount now
-                // needs a PIN-verified approval token, regardless of
-                // whether the acting cashier holds `sales.discount` —
-                // the PIN identifies WHO applied it, not just whether the
-                // logged-in session is allowed to. Under the store's
-                // threshold, any active user's PIN satisfies it; above
-                // it, the resolved PIN owner must still hold
-                // `sales.discount_above_threshold` (re-checked live here,
-                // not trusted from the token, in case it was revoked
-                // between approval and ring-up).
-                if (bccomp($effectivePct, $exemptCeiling, 4) > 0) {
-                    $threshold = (string) ($store->discount_threshold_percent ?? '100');
-
-                    $approverId = app(DiscountApprovalToken::class)
-                        ->verify($header['discount_approval'] ?? null, $storeId, $effectivePct);
-                    $approver = $approverId ? User::find($approverId) : null;
-
-                    if (! $approver) {
-                        throw new DiscountNotAllowed();
-                    }
-                    if (bccomp($effectivePct, $threshold, 4) > 0
-                        && ! $approver->hasPermission('sales.discount_above_threshold', $storeId)) {
-                        throw new DiscountAboveThreshold($effectivePct, $threshold);
-                    }
-
-                    $discountApprovedBy = $approverId;
-                }
+                $pointsRedeemedValue = bccomp($rawValue, $grandTotal, 4) > 0 ? $grandTotal : $rawValue;
+                $grandTotal = bcsub($grandTotal, $pointsRedeemedValue, 4);
             }
 
             foreach ($priced->lines as $pl) {
@@ -366,9 +352,6 @@ class CompleteSale
             foreach ($payments as $p) {
                 $sumPay = bcadd($sumPay, (string) ($p['amount'] ?? '0'), 4);
             }
-            $customerId = isset($header['customer_id']) && $header['customer_id'] !== ''
-                ? (int) $header['customer_id']
-                : null;
 
             // Tolerance: the cashier sees prices at 2dp but the server
             // stores at 4dp. The client computes grand_total in JS
@@ -405,9 +388,8 @@ class CompleteSale
             // A positive limit blocks if the post-sale balance would
             // exceed it.
             $balanceDue = bcsub($grandTotal, $sumPay, 4);
-            $customer = $customerId
-                ? Customer::query()->lockForUpdate()->find($customerId)
-                : null;
+            // `$customer` was already fetched-and-locked above (points
+            // redemption block) — reused here rather than a second query.
 
             if ($customer && bccomp($balanceDue, '0', 4) > 0) {
                 $limit = (string) ($customer->credit_limit ?? '0');
@@ -493,8 +475,40 @@ class CompleteSale
                 'paid_total'      => $sumPay,
                 'balance_due'     => $balanceDue,
                 'change_returned' => $this->changeReturned($payments),
+                'points_redeemed'       => $pointsRedeemed > 0 ? $pointsRedeemed : null,
+                'points_redeemed_value' => $pointsRedeemed > 0 ? $pointsRedeemedValue : null,
             ]);
             $sale->save();
+
+            // Spend the points now the sale row (and its id, for the
+            // ledger's reference) exists. Same lock acquired earlier —
+            // no re-query, no race with another checkout on this customer.
+            if ($pointsRedeemed > 0 && $customer) {
+                $customer->decrement('loyalty_points', $pointsRedeemed);
+
+                \App\Models\CustomerCreditTransaction::create([
+                    'customer_id'          => $customer->id,
+                    'store_id'             => $storeId,
+                    'type'                 => \App\Models\CustomerCreditTransaction::TYPE_LOYALTY_REDEEM,
+                    'points'               => -$pointsRedeemed,
+                    'amount'               => bcmul($pointsRedeemedValue, '-1', 4),
+                    'balance_after_points' => $customer->loyalty_points,
+                    'reference_type'       => Sale::class,
+                    'reference_id'         => $sale->id,
+                    'created_by'           => $cashierId,
+                ]);
+
+                // Live balance push — same best-effort as EarnLoyaltyPoints,
+                // only meaningful once the customer has a PassFast-signed
+                // pass to actually update.
+                if ($customer->wallet_pass_token && \App\Services\Wallet\PassFastClient::isConfigured($company)) {
+                    try {
+                        app(\App\Services\Wallet\PassFastClient::class)->updateBalance($customer, $customer->wallet_pass_token);
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                }
+            }
 
             // ── Order-level discount audit (Slice 3). One row per sale
             // when a discount was applied — records what the cashier

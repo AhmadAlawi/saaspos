@@ -85,20 +85,34 @@ export async function sendBytesViaWebUsb(bytes, printerConfig = {}) {
     let device = await getPairedDevice(printerConfig.webusb_device_descriptor);
     if (!device) device = await requestDevice();
 
-    await device.open();
-    if (device.configuration === null) await device.selectConfiguration(1);
-
-    const { interfaceNumber, endpoint } = findOutEndpoint(device);
-    await device.claimInterface(interfaceNumber);
-
+    // open()/selectConfiguration()/claimInterface() used to sit OUTSIDE
+    // the try/finally below — if any of them threw (the interface still
+    // held by a not-yet-released PRIOR attempt, most commonly), the
+    // function exited without ever calling device.close(), leaving this
+    // attempt's connection dangling too. Every call after that inherits
+    // the same stuck claim and fails the same way — a single hiccup on
+    // one trigger (say, a rarely-used button) permanently wedges the
+    // device for every trigger sharing this module's cached device
+    // object, until something reloads the page. Now everything that
+    // opens the device also unconditionally tries to close it.
+    let interfaceNumber = null;
     try {
+        await device.open();
+        if (device.configuration === null) await device.selectConfiguration(1);
+
+        const ep = findOutEndpoint(device);
+        interfaceNumber = ep.interfaceNumber;
+        await device.claimInterface(interfaceNumber);
+
         // Chunked transfer — large payloads (logos) can exceed a single
         // bulk packet, and some printers choke on oversized writes.
         for (let i = 0; i < bytes.length; i += 1024) {
-            await device.transferOut(endpoint, bytes.slice(i, i + 1024));
+            await device.transferOut(ep.endpoint, bytes.slice(i, i + 1024));
         }
     } finally {
-        try { await device.releaseInterface(interfaceNumber); } catch (_) { /* noop */ }
+        if (interfaceNumber !== null) {
+            try { await device.releaseInterface(interfaceNumber); } catch (_) { /* noop */ }
+        }
         try { await device.close(); } catch (_) { /* noop */ }
     }
 }

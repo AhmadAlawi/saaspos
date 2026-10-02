@@ -68,6 +68,12 @@
                 'route' => 'admin.settings.pricing.edit',
             ],
             [
+                'label' => __('settings.groups.loyalty.title'),
+                'desc'  => __('settings.groups.loyalty.desc'),
+                'icon'  => 'tag',
+                'route' => 'admin.settings.loyalty.edit',
+            ],
+            [
                 'label' => __('settings.groups.numbering.title'),
                 'desc'  => __('settings.groups.numbering.desc'),
                 'icon'  => 'tag',

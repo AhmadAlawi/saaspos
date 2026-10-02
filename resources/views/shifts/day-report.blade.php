@@ -14,6 +14,14 @@
         <button type="button" class="receipt-tool-btn" onclick="window.print()">🖨 {{ __('shifts.actions.print') }}</button>
     </div>
 
+    @php
+        // No cash-counting step happens at the DAY level (each shift
+        // already reconciled its own drawer at close — see close-day.
+        // blade.php), so unlike the per-shift totals-table this whole
+        // report is pure reporting, not an operational necessity —
+        // gate all of it, not just the revenue sections.
+        $canViewAmounts = auth()->user()?->hasPermission('sales.view_amounts', (int) $day->store_id) ?? false;
+    @endphp
     <div class="receipt {{ $paper === 'a4' ? 'receipt-a4' : 'receipt-thermal' }}">
         <div class="rcpt-store">
             <div class="rcpt-store-name">{{ $day->store?->name }}</div>
@@ -24,6 +32,10 @@
 
         <div class="rcpt-header rcpt-refund-banner">{{ __('shifts.sections.day_report') }}</div>
 
+        @if (! $canViewAmounts)
+            <div class="rcpt-rule"></div>
+            <div class="rcpt-meta">{{ __('shifts.errors.amounts_restricted') }}</div>
+        @else
         <div class="rcpt-rule"></div>
         <div class="rcpt-totals">
             <div><span>{{ __('shifts.day_fields.date') }}</span><span>{{ $day->business_date->toDateString() }}</span></div>
@@ -75,6 +87,7 @@
                 @endif
             @endforeach
         </div>
+        @endif
     </div>
 </body>
 </html>

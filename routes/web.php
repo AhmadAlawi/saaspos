@@ -181,7 +181,6 @@ Route::get('/storage-link', function (\App\Actions\Installer\LinkPublicStorage $
 // Once installed, an authenticated user goes to the dashboard and everyone
 // else to login. (Always redirecting to /login looped: /login's `guest`
 // middleware bounces a signed-in user straight back to /.)
-//
 // Used to show LandingController's bundled marketing page here when
 // POS_DEMO_MODE=true — dropped (2026-09-12): every instance (demo
 // included) is now reached via Tillora's own subscription marketing site
@@ -332,6 +331,12 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     Route::delete('brands/{brand}',[\App\Http\Controllers\Admin\BrandController::class, 'destroy'])->name('brands.destroy');
 
     // Terminals — checkout stations + their hardware config (flat list, side editor).
+    // Live camera grid (beta) — gated by the normal `cameras.view` permission.
+    Route::get('cameras',                    [\App\Http\Controllers\Admin\CameraLiveController::class, 'index'])->name('cameras.index');
+    Route::get('cameras/{terminal}/snapshot', [\App\Http\Controllers\Admin\CameraLiveController::class, 'snapshot'])->name('cameras.snapshot');
+    Route::get('cameras/{terminal}/stream',   [\App\Http\Controllers\Admin\CameraLiveController::class, 'stream'])->name('cameras.stream');
+    Route::get('cameras-channel-snapshot',    [\App\Http\Controllers\Admin\CameraLiveController::class, 'channelSnapshot'])->name('cameras.channel-snapshot');
+
     Route::get('terminals',              [\App\Http\Controllers\Admin\TerminalController::class, 'index'])->name('terminals.index');
     Route::get('terminals/rows',         [\App\Http\Controllers\Admin\TerminalController::class, 'rows'])->name('terminals.rows');
     Route::get('terminals/export',       [\App\Http\Controllers\Admin\TerminalController::class, 'export'])->name('terminals.export');
@@ -422,6 +427,12 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
         ->where(['layoutKey' => implode('|', array_map('preg_quote', array_keys(config('labels.layouts')))), 'type' => 'name|sku|price|barcode|image']);
     Route::get('products/labels/designer/{layoutKey}/preview', [\App\Http\Controllers\Admin\LabelLayoutController::class, 'preview'])
         ->name('products.labels.designer.preview')
+        ->where('layoutKey', implode('|', array_map('preg_quote', array_keys(config('labels.layouts')))));
+    Route::patch('products/labels/designer/{layoutKey}/dimensions', [\App\Http\Controllers\Admin\LabelLayoutController::class, 'updateDimensions'])
+        ->name('products.labels.designer.dimensions')
+        ->where('layoutKey', implode('|', array_map('preg_quote', array_keys(config('labels.layouts')))));
+    Route::get('products/labels/designer/{layoutKey}/canvas', [\App\Http\Controllers\Admin\LabelLayoutController::class, 'canvasFragment'])
+        ->name('products.labels.designer.canvas')
         ->where('layoutKey', implode('|', array_map('preg_quote', array_keys(config('labels.layouts')))));
     Route::get('products/create',         [\App\Http\Controllers\Admin\ProductController::class, 'create'])->name('products.create');
     Route::post('products',               [\App\Http\Controllers\Admin\ProductController::class, 'store'])->name('products.store');
@@ -554,6 +565,7 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
         Route::get('sales-by-category/export',     [\App\Http\Controllers\Admin\SalesByCategoryReportController::class, 'export'])->name('sales-by-category.export');
         Route::get('discounts',                   [\App\Http\Controllers\Admin\DiscountsReportController::class, 'index'])->name('discounts.index');
         Route::get('discounts/export',             [\App\Http\Controllers\Admin\DiscountsReportController::class, 'export'])->name('discounts.export');
+        Route::get('activity-log',                [\App\Http\Controllers\Admin\ActivityLogReportController::class, 'index'])->name('activity-log.index');
         Route::get('top-customers',               [\App\Http\Controllers\Admin\TopCustomersReportController::class, 'index'])->name('top-customers.index');
         Route::get('top-customers/export',         [\App\Http\Controllers\Admin\TopCustomersReportController::class, 'export'])->name('top-customers.export');
         Route::get('top-suppliers',               [\App\Http\Controllers\Admin\TopSuppliersReportController::class, 'index'])->name('top-suppliers.index');
@@ -811,6 +823,17 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     // System Health — read-only diagnostics board (config, DB, storage, jobs, PHP).
     Route::get('settings/system-health', [\App\Http\Controllers\Admin\SystemHealthController::class, 'index'])->name('settings.system-health');
     Route::post('settings/system-health/clear-sample-data', [\App\Http\Controllers\Admin\SystemHealthController::class, 'clearSampleData'])->name('settings.system-health.clear-sample-data');
+
+    // Audit log — every create/update/delete on an audited model. Super-admin only.
+    Route::get('audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');
+
+    // Camera integration (beta) — every store has its own NVR. Super-admin only.
+    Route::get('settings/cameras',                [\App\Http\Controllers\Admin\CameraSettingsController::class, 'index'])->name('settings.cameras.index');
+    Route::get('settings/cameras/{store}',         [\App\Http\Controllers\Admin\CameraSettingsController::class, 'edit'])->name('settings.cameras.edit');
+    Route::post('settings/cameras/{store}',        [\App\Http\Controllers\Admin\CameraSettingsController::class, 'update'])->name('settings.cameras.update');
+    Route::post('settings/cameras/{store}/test',   [\App\Http\Controllers\Admin\CameraSettingsController::class, 'test'])->name('settings.cameras.test');
+    Route::get('settings/cameras/{store}/snapshot', [\App\Http\Controllers\Admin\CameraSettingsController::class, 'snapshot'])->name('settings.cameras.snapshot');
+    Route::post('settings/cameras/{store}/terminals/{terminal}/assign', [\App\Http\Controllers\Admin\CameraSettingsController::class, 'assignChannel'])->name('settings.cameras.assign');
     Route::get('settings/cashier',  [\App\Http\Controllers\Admin\CashierSettingsController::class, 'edit'])->name('settings.cashier.edit');
     Route::patch('settings/cashier',[\App\Http\Controllers\Admin\CashierSettingsController::class, 'update'])->name('settings.cashier.update');
 
@@ -827,6 +850,12 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     // can land here later without breaking the URL surface.
     Route::get('settings/pricing',  [\App\Http\Controllers\Admin\PricingSettingsController::class, 'edit'])->name('settings.pricing.edit');
     Route::patch('settings/pricing',[\App\Http\Controllers\Admin\PricingSettingsController::class, 'update'])->name('settings.pricing.update');
+
+    Route::get('settings/loyalty',   [\App\Http\Controllers\Admin\LoyaltySettingsController::class, 'edit'])->name('settings.loyalty.edit');
+    Route::patch('settings/loyalty', [\App\Http\Controllers\Admin\LoyaltySettingsController::class, 'update'])->name('settings.loyalty.update');
+
+    Route::get('settings/apple-wallet',   [\App\Http\Controllers\Admin\AppleWalletSettingsController::class, 'edit'])->name('settings.apple-wallet.edit');
+    Route::patch('settings/apple-wallet', [\App\Http\Controllers\Admin\AppleWalletSettingsController::class, 'update'])->name('settings.apple-wallet.update');
     Route::get('settings/numbering',  [\App\Http\Controllers\Admin\NumberFormatController::class, 'edit'])->name('settings.numbering.edit');
     Route::patch('settings/numbering',[\App\Http\Controllers\Admin\NumberFormatController::class, 'update'])->name('settings.numbering.update');
     Route::get('settings/email',         [\App\Http\Controllers\Admin\EmailSettingsController::class, 'edit'])->name('settings.email.edit');
@@ -874,7 +903,14 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     Route::post('sales/{sale}/payments', [\App\Http\Controllers\Admin\SaleController::class, 'recordPayment'])->name('sales.payments.store');
     Route::post('sales/{sale}/void',     [\App\Http\Controllers\Admin\SaleController::class, 'void'])->name('sales.void');
     Route::patch('sales/{sale}/payments/{payment}/method', [\App\Http\Controllers\Admin\SaleController::class, 'changePaymentMethod'])->name('sales.payments.change-method');
+    Route::patch('sales/{sale}/payments/{payment}/split',  [\App\Http\Controllers\Admin\SaleController::class, 'splitPayment'])->name('sales.payments.split');
     Route::post('sales/returns/{saleReturn}/retry-reversal', [\App\Http\Controllers\Admin\SaleReturnGatewayRefundController::class, 'retry'])->name('sales.returns.retry-reversal');
+    // Camera footage lookup (beta) — super-admin only, gated inside the controller.
+    // Async camera-clip requests (beta) — sale footage + single
+    // activity-log events (drawer kicks, item add/remove), super-admin only.
+    Route::get('camera-clips/lookup',   [\App\Http\Controllers\Admin\CameraClipController::class, 'lookup'])->name('camera-clips.lookup');
+    Route::post('camera-clips',         [\App\Http\Controllers\Admin\CameraClipController::class, 'store'])->name('camera-clips.store');
+    Route::get('camera-clips/{clip}',   [\App\Http\Controllers\Admin\CameraClipController::class, 'show'])->name('camera-clips.show');
 
     // Return reasons — picklist used by the refund form. Single-page
     // master-detail CRUD; mirrors adjustment-reasons.
@@ -903,6 +939,8 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     Route::patch('receipt-templates/{receiptTemplate}',          [\App\Http\Controllers\Admin\ReceiptTemplateController::class, 'update'])->name('receipt-templates.update');
     Route::delete('receipt-templates/{receiptTemplate}',         [\App\Http\Controllers\Admin\ReceiptTemplateController::class, 'destroy'])->name('receipt-templates.destroy');
     Route::patch('receipt-templates/{receiptTemplate}/default',  [\App\Http\Controllers\Admin\ReceiptTemplateController::class, 'setDefault'])->name('receipt-templates.default');
+    Route::post('receipt-templates/{receiptTemplate}/duplicate', [\App\Http\Controllers\Admin\ReceiptTemplateController::class, 'duplicate'])->name('receipt-templates.duplicate');
+    Route::get('receipt-templates/{receiptTemplate}/test-print', [\App\Http\Controllers\Admin\ReceiptTemplateController::class, 'testPrint'])->name('receipt-templates.test-print');
 
     Route::get('receipt-templates/{receiptTemplate}/blocks',                [\App\Http\Controllers\Admin\ReceiptTemplateBlockController::class, 'edit'])->name('receipt-templates.blocks.edit');
     Route::get('receipt-templates/{receiptTemplate}/preview',               [\App\Http\Controllers\Admin\ReceiptTemplateBlockController::class, 'preview'])->name('receipt-templates.preview');
@@ -940,6 +978,13 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     Route::post('shifts/day/{tradingDay}/close',        [\App\Http\Controllers\Admin\ShiftController::class, 'closeDay'])->name('shifts.day.close');
     Route::get('shifts/day/{tradingDay}/report-payload',[\App\Http\Controllers\Admin\ShiftController::class, 'dayReportPayload'])->name('shifts.day.report-payload');
 
+    // One-click "all terminals" rollup — every terminal's trading day for
+    // one business date, described individually, then a grand total.
+    // Distinct path (not shifts/day/{tradingDay}/…) so it can't collide
+    // with the single-terminal route above.
+    Route::get('shifts/all-terminals/report-payload', [\App\Http\Controllers\Admin\ShiftController::class, 'allTerminalsReportPayload'])->name('shifts.all-terminals.report-payload');
+    Route::get('shifts/day-total/report-payload', [\App\Http\Controllers\Admin\ShiftController::class, 'dayTotalReportPayload'])->name('shifts.day-total.report-payload');
+
     // Cash drawer movements against an open shift. Single endpoint —
     // the `type` field in the body decides pay-in / pay-out / drawer-
     // open-no-sale; the request validator branches its rules + perm.
@@ -957,18 +1002,31 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
 // `/cashier` is the operator-facing URL. The cashier UI itself reuses the
 // admin layout in Slice 1; a dedicated cashier chrome lands when the rest
 // of the cashier features (shift, held drawer, ⌘K) are wired up.
+// Customer-Facing Display (CFD) — the second screen turned toward the
+// shopper. Deliberately OUTSIDE the auth-gated cashier group below: this
+// screen is opened once and left running for the whole shift, so it must
+// keep showing the shopper-facing content even if the cashier's session
+// later expires or they log out — otherwise the customer sees the staff
+// login page mid-queue. The terminal is identified by an explicit
+// `?terminal=` id baked into the URL when the cashier opens the window,
+// not by session state. See CustomerDisplayController's class docblock.
+Route::middleware(['ensure.installed', 'set.locale'])->name('cashier.')->group(function () {
+    Route::get('cashier/display',                  [\App\Http\Controllers\Cashier\CustomerDisplayController::class, 'show'])->name('display');
+    Route::get('cashier/display/{terminal}/state', [\App\Http\Controllers\Cashier\CustomerDisplayController::class, 'state'])->name('display.state');
+});
+
+// Cashier surface. Same auth gate as the admin but no `admin/` URL prefix —
+// `/cashier` is the operator-facing URL. The cashier UI itself reuses the
+// admin layout in Slice 1; a dedicated cashier chrome lands when the rest
+// of the cashier features (shift, held drawer, ⌘K) are wired up.
 Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])->name('cashier.')->group(function () {
     Route::get('cashier',                  [\App\Http\Controllers\Admin\SaleController::class, 'cashier'])->name('index');
 
-    // Customer-Facing Display (CFD) — the second screen turned toward the
-    // shopper. Opened from the cashier as a second window; mirrors the cart
-    // live over a same-machine BroadcastChannel (no server round-trip).
-    // See docs/features/customer-display.md.
-    Route::get('cashier/display',          [\App\Http\Controllers\Cashier\CustomerDisplayController::class, 'show'])->name('display');
     // Tier 2 (separate-device) relay: the cashier pushes its snapshot to a
-    // per-terminal cache; the tablet polls the state endpoint. No Pusher.
+    // per-terminal cache; the tablet polls the (public, see above) state
+    // endpoint. No Pusher. This push side stays auth-gated — it's the
+    // cashier's own tab, only ever open while they're signed in.
     Route::post('cashier/display/push',            [\App\Http\Controllers\Cashier\CustomerDisplayController::class, 'push'])->name('display.push');
-    Route::get('cashier/display/{terminal}/state', [\App\Http\Controllers\Cashier\CustomerDisplayController::class, 'state'])->name('display.state');
 
     // Offline-first Slice 1: catalog snapshot + heartbeat.
     Route::get('cashier/sync',             [\App\Http\Controllers\Admin\SaleController::class, 'sync'])->name('sync');
@@ -987,11 +1045,24 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     // canOpenDay flag as the single source of truth for who sees the button).
     Route::post('cashier/day/open',        [\App\Http\Controllers\Cashier\ShiftController::class, 'openDay'])->name('day.open');
 
+    // Focus mode's "Open drawer" rail button — PIN identifies who, open
+    // to every active team member (no permission gate, unlike the
+    // admin/overflow-menu drawer-open action above).
+    Route::post('cashier/drawer/pin',      [\App\Http\Controllers\Cashier\ShiftController::class, 'openDrawerWithPin'])->name('drawer.pin');
+
+    // Best-effort activity log for every tracked cashier-screen action —
+    // cart edits, discounts, hold/void, drawer kicks, shift open/close,
+    // prints, checkout, refunds, and client-side JS errors.
+    Route::post('cashier/activity-log',    [\App\Http\Controllers\Cashier\CashierActivityLogController::class, 'store'])->name('activity-log.store');
+
     // Bind this workstation to a terminal from the cashier (Slice B).
     Route::post('cashier/terminal',        [\App\Http\Controllers\Cashier\TerminalController::class, 'select'])->name('terminal.select');
 
     // Manager approval for an over-threshold discount (Discounts Slice 2).
     Route::post('cashier/discount/approve',[\App\Http\Controllers\Cashier\DiscountApprovalController::class, 'approve'])->name('discount.approve');
+
+    // Self-service PIN change — every user, no admin gate.
+    Route::post('cashier/pin/change',      [\App\Http\Controllers\Cashier\ChangePinController::class, 'update'])->name('pin.change');
 
     Route::get('cashier/batches',          [\App\Http\Controllers\Admin\SaleController::class, 'batches'])->name('batches');
     Route::get('cashier/customers/search', [\App\Http\Controllers\Admin\SaleController::class, 'customerSearch'])->name('customers.search');
@@ -1061,6 +1132,18 @@ Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])-
     Route::post('kiosk/exit', [\App\Http\Controllers\Kiosk\KioskController::class, 'exit'])->name('exit');
 });
 
+// Mobile-web floor tool: scan a product barcode, take a photo, repeat.
+// No app-store app — a normal authenticated page an employee bookmarks /
+// "Add to Home Screen"s. Same middleware stack as Kiosk (PIN login has
+// no store context until `store.selected` runs). Permission-gated inside
+// the controller on the narrow `products.photos.capture` key.
+Route::middleware(['ensure.installed', 'auth', 'store.selected', 'set.locale'])->group(function () {
+    Route::get('product-photos', [\App\Http\Controllers\ProductPhotoCaptureController::class, 'show'])->name('product-photos.show');
+    Route::get('product-photos/scan', [\App\Http\Controllers\ProductPhotoCaptureController::class, 'scan'])->name('product-photos.scan');
+    Route::post('product-photos/{product}/photos', [\App\Http\Controllers\ProductPhotoCaptureController::class, 'store'])->name('product-photos.store');
+    Route::delete('product-photos/{product}/photos/{photo}', [\App\Http\Controllers\ProductPhotoCaptureController::class, 'destroy'])->name('product-photos.destroy');
+});
+
 // Public webhook receivers — no auth, no CSRF (the provider signs the
 // payload). Each provider gets its own route + controller because the
 // signature header + raw-body handling differs.
@@ -1084,6 +1167,42 @@ Route::get('pay/pos/{uuid}/return',   [\App\Http\Controllers\Pay\CustomerPayCont
 Route::get('r/{token}', [\App\Http\Controllers\PublicReceiptController::class, 'show'])
     ->middleware('throttle:60,1')
     ->name('receipt.public');
+
+// Public, no-login Apple Wallet loyalty-card download — the opaque
+// 64-char token IS the auth, same shape as the receipt link above.
+Route::get('wallet/{token}.pkpass', [\App\Http\Controllers\WalletPassController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->middleware('throttle:60,1')
+    ->name('wallet.pass');
+
+// Google Wallet counterpart — redirects to PassFast's hosted save URL
+// rather than serving a file directly (see WalletPassController::showGoogle).
+Route::get('wallet/{token}/google', [\App\Http\Controllers\WalletPassController::class, 'showGoogle'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->middleware('throttle:60,1')
+    ->name('wallet.pass.google');
+
+// Public, no-login self-service claim flow — a walk-in customer scans the
+// CFD's claim QR (no customer was attached at checkout), fills in their
+// name + phone, and the system attaches them to the already-completed
+// sale + retroactively awards points. See SaleClaimController.
+Route::get('claim/{token}', [\App\Http\Controllers\SaleClaimController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->middleware('throttle:60,1')
+    ->name('sale.claim');
+Route::post('claim/{token}', [\App\Http\Controllers\SaleClaimController::class, 'store'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->middleware('throttle:20,1')
+    ->name('sale.claim.store');
+
+// Public, no-login printable/on-screen loyalty card — the interim
+// stand-in while there's no Apple Developer certificate to sign a real
+// .pkpass. Same token as the wallet route above (one token per
+// customer, either surface can read it).
+Route::get('card/{token}', [\App\Http\Controllers\LoyaltyCardController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]+')
+    ->middleware('throttle:60,1')
+    ->name('loyalty.card');
 
 // Public, no-login price-check page — served from its own domain
 // (pricing.infinityglobal.com.jo, see the nginx vhost) so a customer

@@ -44,4 +44,17 @@ return [
         'locale_invalid'       => 'That language is not available.',
     ],
 
+    // Self-service PIN change (cashier screen) — every user, no admin gate.
+    'pin' => [
+        'title'     => 'Change my PIN',
+        'sub'       => 'Verify your current PIN, then set a new 6-digit one.',
+        'current'   => 'Current PIN',
+        'new'       => 'New PIN',
+        'confirm'   => 'Confirm new PIN',
+        'not_set'   => "You don't have a PIN set yet — ask a manager to set one first.",
+        'incorrect' => 'That PIN is incorrect.',
+        'updated'   => 'PIN changed.',
+        'same_as_current' => 'New PIN must be different from your current one.',
+    ],
+
 ];

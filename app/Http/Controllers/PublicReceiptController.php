@@ -48,6 +48,25 @@ class PublicReceiptController extends Controller
 
         $company = Company::current() ?? new Company();
 
+        // Only when the sale has a real customer attached (not a walk-in)
+        // and the program is switched on — same lazy-mint-on-first-need
+        // as the admin customer page. The printable/on-screen card link
+        // works regardless of whether Apple Wallet is configured; the
+        // Wallet download only shows once a real certificate is in place.
+        $walletPassUrl = null;
+        $googleWalletPassUrl = null;
+        $loyaltyCardUrl = null;
+        if ($company->loyalty_enabled && $sale->customer) {
+            $token = app(\App\Actions\Customers\EnsureWalletPassToken::class)->handle($sale->customer);
+            $loyaltyCardUrl = route('loyalty.card', ['token' => $token]);
+            if ($company->apple_wallet_enabled) {
+                $walletPassUrl = route('wallet.pass', ['token' => $token]);
+            }
+            if (\App\Services\Wallet\PassFastClient::isConfigured($company)) {
+                $googleWalletPassUrl = route('wallet.pass.google', ['token' => $token]);
+            }
+        }
+
         return view('sales.receipt', [
             'sale'    => $sale,
             'company' => $company,
@@ -55,6 +74,9 @@ class PublicReceiptController extends Controller
             'auto'    => false,
             // Masks customer contact details + hides the admin "Back" tool.
             'public'  => true,
+            'walletPassUrl'       => $walletPassUrl,
+            'googleWalletPassUrl' => $googleWalletPassUrl,
+            'loyaltyCardUrl'      => $loyaltyCardUrl,
         ]);
     }
 

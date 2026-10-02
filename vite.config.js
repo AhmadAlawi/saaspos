@@ -19,22 +19,20 @@ export default defineConfig({
                 'resources/css/receipt.css',
                 'resources/css/pay.css',
                 'resources/js/pay.js',
-                // 'resources/js/pay-wallet.js' and 'resources/js/pricing.js'
-                // are referenced by resources/views/pay/pos_wallet.blade.php
-                // and resources/views/pricing/check.blade.php but the source
-                // files don't exist — pre-existing gap (confirmed via the
-                // recurring "Unable to locate file in Vite manifest" errors
-                // in production logs), not something removed here. Commented
-                // out rather than deleted so the moment those files are
-                // restored, re-enabling them is a one-line uncomment. This
-                // was blocking `npm run build` entirely for every deploy,
-                // not just these two pages.
+                // Both source files now exist (the "don't exist" gap noted
+                // here previously has been closed) — re-enabled so
+                // resources/views/pay/pos_wallet.blade.php and
+                // resources/views/pricing/check.blade.php stop 500ing with
+                // "Unable to locate file in Vite manifest" in production.
+                'resources/js/pay-wallet.js',
+                'resources/js/pricing.js',
                 'resources/css/cashier/customer-display.css',
                 'resources/js/cashier/customer-display.js',
                 'resources/css/kiosk/kiosk.css',
                 'resources/js/kiosk/kiosk-app.js',
                 'resources/js/admin/receipt-canvas-editor.js',
                 'resources/js/admin/label-canvas-editor.js',
+                'resources/js/products/photo-capture-page.js',
             ],
             refresh: true,
             fonts: [

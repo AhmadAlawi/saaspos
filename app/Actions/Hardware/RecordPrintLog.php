@@ -2,7 +2,9 @@
 
 namespace App\Actions\Hardware;
 
+use App\Actions\Cashier\RecordCashierActivity;
 use App\Models\PrintLog;
+use Illuminate\Http\Request;
 
 /**
  * Persist a print-attempt audit row (docs/features/hardware.md §9.4).
@@ -17,8 +19,10 @@ use App\Models\PrintLog;
  */
 class RecordPrintLog
 {
+    public function __construct(private RecordCashierActivity $activity) {}
+
     /** @param array<string, mixed> $data Validated payload from RecordPrintLogRequest. */
-    public function __invoke(array $data): PrintLog
+    public function __invoke(array $data, ?Request $request = null): PrintLog
     {
         $log = PrintLog::create([
             'store_id'       => current_store_id(),
@@ -39,6 +43,21 @@ class RecordPrintLog
             'queued' => do_action('print.queued', $log),
             default  => do_action('print.after_send', $log),
         };
+
+        // Also mirrored into the unified cashier activity log — so the
+        // by-type report (which reads cashier_activity_logs, not
+        // print_logs directly) shows X/Z-report, receipt, and label
+        // prints alongside cart/discount/drawer/shift/sale events
+        // instead of needing a second query against a second table.
+        try {
+            $this->activity->__invoke([
+                'type'           => 'print',
+                'action'         => 'print.'.strtolower($data['reference_type']),
+                'reference_type' => $data['reference_type'],
+                'reference_id'   => $data['reference_id'] ?? null,
+                'meta'           => ['printer_type' => $data['printer_type'], 'mode' => $data['mode'], 'status' => $data['status']],
+            ], $request ?? request());
+        } catch (\Throwable) { /* best-effort */ }
 
         return $log;
     }

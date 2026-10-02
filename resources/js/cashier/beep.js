@@ -42,3 +42,35 @@ export function playAddBeep() {
         osc.stop(now + 0.15);
     } catch { /* never let audio break the sale */ }
 }
+
+/**
+ * "Scan not recognised" alert — deliberately harsher and longer than
+ * playAddBeep() so it cuts through a busy till and gets noticed, since
+ * the whole point is a cashier who scanned a run of items without
+ * looking at the screen missing that one didn't ring up.
+ */
+export function playErrorBeep() {
+    const c = audioContext();
+    if (!c) return;
+    try {
+        if (c.state === 'suspended') c.resume().catch(() => {});
+
+        const now = c.currentTime;
+        [0, 0.16].forEach((offset) => {
+            const t    = now + offset;
+            const osc  = c.createOscillator();
+            const gain = c.createGain();
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(220, t); // low, buzzer-like
+
+            gain.gain.setValueAtTime(0.0001, t);
+            gain.gain.exponentialRampToValueAtTime(0.22, t + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+
+            osc.connect(gain).connect(c.destination);
+            osc.start(t);
+            osc.stop(t + 0.15);
+        });
+    } catch { /* never let audio break the sale */ }
+}

@@ -1,20 +1,20 @@
 import { posPost, applyValidationErrors } from '../lib/http.js';
-import { openDrawer, DrawerKickUnavailable } from '../hardware/print-bridge.js';
+import { openDrawer, printReceipt, DrawerKickUnavailable } from '../hardware/print-bridge.js';
 import { terminalPrinterConfig } from '../hardware/terminal-config.js';
 
 /**
  * Alpine factory behind the "Open drawer (no sale)" form on an open
  * shift (docs/features/hardware.md §8.4). Two things happen on submit:
  *
- *   1. Physical kick — only when the active terminal is configured for a
- *      WebUSB printer. We gate on the terminal's printer mode so non-
- *      thermal terminals never trigger a USB device picker.
+ *   1. Physical kick — WebUSB when the terminal's configured for it;
+ *      otherwise `printReceipt()` against the server-resolved
+ *      `print_payload` (same bridge + same PrinterConfig::fromTerminal
+ *      resolution the sale receipt uses), which pops the drawer as a
+ *      hardware side-effect on a printer with it wired into the RJ-11
+ *      port (browser-print has no byte-level command of its own — see
+ *      openDrawer()'s docblock).
  *   2. Audit — records a `drawer_open_no_sale` cash-drawer entry via the
  *      existing endpoint so the Z-report counts the open.
- *
- * In browser-print mode the printer never receives raw bytes, so there's
- * no kick to send — the cashier opens the drawer by hand (§8.3); we still
- * record the event.
  */
 export function drawerOpener({ recordUrl } = {}) {
     return {
@@ -47,9 +47,20 @@ export function drawerOpener({ recordUrl } = {}) {
                     message: data?.message ?? 'Drawer open recorded.',
                 });
 
-                // Only nudge "open it manually" when a kick was expected
-                // (WebUSB terminal) but couldn't be delivered.
-                if (cfg.mode === 'webusb' && !kicked) {
+                // No WebUSB kick — fall back to printing the server-
+                // resolved slip through the same bridge checkout uses,
+                // which pops the drawer as a hardware side-effect on a
+                // printer wired for it.
+                if (!kicked && data?.print_payload) {
+                    try {
+                        await printReceipt(data.print_payload, cfg);
+                        kicked = true;
+                    } catch (e) {
+                        console.warn('[drawer] slip print failed', e);
+                    }
+                }
+
+                if (!kicked) {
                     this.$store.toasts.push({
                         type:    'info',
                         message: 'Couldn\'t reach the printer — open the drawer manually.',

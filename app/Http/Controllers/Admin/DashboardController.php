@@ -21,6 +21,21 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
+        // This controller has no route-level permission middleware — it's
+        // reachable by any authenticated user who navigates here directly,
+        // cashier or not. A cashier-only account (same test the post-login
+        // redirect in LoginController::defaultRedirect() uses) has no
+        // legitimate reason to be on the back-office dashboard at all —
+        // send them back to their own screen instead of rendering a page
+        // that's almost entirely sales figures.
+        $user = $request->user();
+        $isCashierOnly = $user
+            && $user->hasAnyPermissionAcrossStores('sales.create')
+            && ! $user->hasAnyPermissionAcrossStores('settings.view');
+        if ($isCashierOnly) {
+            return redirect('/cashier');
+        }
+
         // Resolve the header date filter into an inclusive [$from, $to] range.
         // Presets (?range=today|yesterday|7d|15d|30d|60d|90d|custom), a custom
         // ?from/?to span, and the legacy ?date=YYYY-MM-DD single day are all
@@ -28,6 +43,12 @@ class DashboardController extends Controller
         [$from, $to, $rangeKey, $isSingleDay] = $this->resolveRange($request);
 
         $storeId  = session('active_store_id');
+        // Gates every money figure below (KPIs, charts, activity feed,
+        // shift-staff sales column, top-products revenue, category mix) —
+        // NOT the operational widgets (low stock, oversold, cashiers on
+        // shift, PO in transit), which stay visible to anyone who reaches
+        // this page. See the redaction block right before $alpineConfig.
+        $canViewAmounts = (bool) ($user?->hasPermission('sales.view_amounts', (int) $storeId) ?? false);
         $fromDate = $from->toDateString();
         $toDate   = $to->toDateString();
 
@@ -364,6 +385,41 @@ class DashboardController extends Controller
                 'status' => $u->status === Shift::STATUS_OPEN ? 'on' : 'off',
             ]);
 
+        // ── Redact money figures for a viewer without `sales.view_amounts` ──
+        // Operational widgets (low stock, oversold, cashiers on shift, PO
+        // in transit, item quantities, new-customer count) are untouched —
+        // only revenue/currency figures are zeroed or blanked here.
+        if (! $canViewAmounts) {
+            $todaySales   = 0.0;
+            $todayTxns    = 0;
+            $avgBasket    = 0.0;
+            $todayItems   = 0.0;
+            $todayRevenue = 0.0;
+            $todayRefunds = 0.0;
+
+            $period14Sales = 0.0;
+            $period14Txns  = 0;
+            $period14Avg   = 0.0;
+            $period14MarginLabel = '—';
+            $netTrendChip = $basketTrendChip = $marginTrendChip = $this->trendChip(null);
+
+            $revByDay   = array_fill(0, count($revByDay), 0.0);
+            $txnByDay   = array_fill(0, count($txnByDay), 0);
+            $heroSeries = array_fill(0, count($heroSeries), 0.0);
+            for ($d = 0; $d < 7; $d++) {
+                $heatmapData[$d]  = array_fill(0, 24, 0.0);
+                $heatmapTxns[$d]  = array_fill(0, 24, 0);
+                $heatmapItems[$d] = array_fill(0, 24, 0.0);
+            }
+
+            $posInTransitValue = 0.0;
+
+            $topProducts = $topProducts->map(fn ($p) => [...$p, 'units' => 0.0, 'revenue' => 0.0, 'trend' => array_fill(0, 7, 0)]);
+            $salesByCategory = $salesByCategory->map(fn ($r) => [...$r, 'rev' => 0.0]);
+            $activity = collect();
+            $shiftStaff = $shiftStaff->map(fn ($s) => [...$s, 'sales' => 0.0, 'txns' => 0]);
+        }
+
         // ── Build Alpine config (all chart data as one JSON blob) ──────
         $alpineConfig = [
             'heroSeries'      => $heroSeries,
@@ -595,6 +651,14 @@ class DashboardController extends Controller
     // ── AJAX: chart data for the performance range selector ───────────
     public function chartRange(Request $request): JsonResponse
     {
+        // Same money gate as index() — this AJAX endpoint returns the
+        // identical revenue/category data, reachable independently of
+        // whether the initial page render redacted anything.
+        $storeId = session('active_store_id');
+        if (! ($request->user()?->hasPermission('sales.view_amounts', (int) $storeId) ?? false)) {
+            abort(403);
+        }
+
         $range   = in_array($request->input('range'), ['today', '7d', '14d', '30d'])
             ? $request->input('range')
             : '14d';
@@ -672,6 +736,13 @@ class DashboardController extends Controller
     // ── AJAX: top-products data for the catalog range selector ────────
     public function catalogRange(Request $request): JsonResponse
     {
+        // Same money gate as index()/chartRange() — this returns
+        // per-product revenue.
+        $storeId = session('active_store_id');
+        if (! ($request->user()?->hasPermission('sales.view_amounts', (int) $storeId) ?? false)) {
+            abort(403);
+        }
+
         $range   = in_array($request->input('range'), ['today', '7d', '14d', '30d'])
             ? $request->input('range')
             : 'today';

@@ -30,7 +30,7 @@ export function labelWizard({ defaultLayout = 'a4-24' } = {}) {
 
             const label = sel.selectedOptions?.[0]?.textContent?.trim() || `#${id}`;
             if (!this.rows.some((r) => String(r.id) === String(id))) {
-                this.rows.push({ id, label, qty: 30 });
+                this.rows.push({ id, label, qty: 1 });
             }
 
             // Clear the picker so the next pick starts fresh (TomSelect-aware).
@@ -47,7 +47,7 @@ export function labelWizard({ defaultLayout = 'a4-24' } = {}) {
                 const { data } = await window.posGet('/admin/products/lookup-barcode', { barcode: code });
                 this.barcodeNotFound = false;
                 if (!this.rows.some((r) => String(r.id) === String(data.value))) {
-                    this.rows.push({ id: data.value, label: data.label, qty: 30 });
+                    this.rows.push({ id: data.value, label: data.label, qty: 1 });
                 }
             } catch (e) {
                 this.barcodeNotFound = true;

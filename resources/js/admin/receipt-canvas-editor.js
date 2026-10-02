@@ -10,7 +10,9 @@
  * bundle already uses for autosave-style inputs.
  */
 import interact from 'interactjs';
-import { posPost, posPatch, posDelete } from '../lib/http.js';
+import { posGet, posPost, posPatch, posDelete } from '../lib/http.js';
+import { printReceipt } from '../hardware/print-bridge.js';
+import { terminalPrinterConfig } from '../hardware/terminal-config.js';
 
 // A true HTTP PATCH with a multipart body never reaches PHP's $_FILES —
 // PHP only auto-parses the multipart superglobals for POST. Laravel's
@@ -36,6 +38,7 @@ function init() {
     const updateUrlTemplate = root.dataset.updateUrlTemplate;
     const destroyUrlTemplate = root.dataset.destroyUrlTemplate;
     const previewUrl = root.dataset.previewUrl;
+    const testPrintUrl = root.dataset.testPrintUrl;
     const paperSizeUrl = root.dataset.paperSizeUrl;
     const labels = JSON.parse(root.dataset.labels);
     let elements = JSON.parse(root.dataset.elements);
@@ -547,6 +550,33 @@ function init() {
                 }
             };
             await trySave(false);
+        });
+    }
+
+    // "Test print" — fetches the exact {mode,paper,html,escpos_bytes}
+    // payload the checkout receipt uses, forced against THIS template
+    // (whatever's currently saved, including live-unsaved element
+    // positions being what's already persisted — same "commit on end"
+    // model the rest of this editor uses), and sends it through the
+    // SAME printReceipt() bridge checkout calls. Real print, real
+    // printer, no dialog on a WebUSB terminal — not the HTML-only iframe
+    // preview above.
+    const testPrintBtn = document.getElementById('rtpl-test-print-btn');
+    const testPrintStatus = document.getElementById('rtpl-test-print-status');
+    if (testPrintBtn && testPrintUrl) {
+        testPrintBtn.addEventListener('click', async () => {
+            testPrintBtn.disabled = true;
+            testPrintStatus.textContent = 'Printing…';
+            try {
+                const { data } = await posGet(testPrintUrl);
+                await printReceipt(data, terminalPrinterConfig());
+                testPrintStatus.textContent = 'Sent to printer.';
+            } catch (e) {
+                testPrintStatus.textContent = e?.message || 'Test print failed — check the printer.';
+            } finally {
+                testPrintBtn.disabled = false;
+                setTimeout(() => { testPrintStatus.textContent = ''; }, 3000);
+            }
         });
     }
 

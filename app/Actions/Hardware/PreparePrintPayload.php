@@ -4,6 +4,7 @@ namespace App\Actions\Hardware;
 
 use App\Actions\Sales\BuildPostRefundSaleCopy;
 use App\Models\Company;
+use App\Models\ReceiptTemplate;
 use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\Terminal;
@@ -31,9 +32,15 @@ class PreparePrintPayload
     ) {}
 
     /**
+     * `$templateOverride` bypasses the normal terminal/store/default
+     * resolution entirely — used by the receipt-template editor's "Test
+     * print" button, which needs to print through THIS specific
+     * (possibly unpublished, possibly not-default) template against a
+     * real sale, not whatever the terminal would normally resolve.
+     *
      * @return array{mode:string, paper:string, html:string, escpos_bytes:string}
      */
-    public function __invoke(Sale $sale, ?Terminal $terminal = null): array
+    public function __invoke(Sale $sale, ?Terminal $terminal = null, ?ReceiptTemplate $templateOverride = null): array
     {
         $this->loadReceiptRelations($sale);
 
@@ -43,7 +50,7 @@ class PreparePrintPayload
         // null when no template has been created/assigned yet — both
         // renderers below fall back to their original Company-field-driven
         // rendering in that case (see ResolveReceiptTemplate's docblock).
-        $template = ($this->resolveTemplate)($terminal);
+        $template = $templateOverride ?? ($this->resolveTemplate)($terminal);
 
         $html = View::make('sales.receipt', [
             'sale'     => $sale,

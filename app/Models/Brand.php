@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Brand extends Model
 {
+    use Auditable;
+
     use SoftDeletes;
 
     protected $fillable = [

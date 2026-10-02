@@ -1,13 +1,22 @@
 /**
- * The web Label Designer — free x/y drag over a FIXED set of 5 elements
- * (name, sku, price, barcode, image), one row per `config('labels.layouts')`
- * key. Adapted from resources/js/admin/receipt-canvas-editor.js: same
- * interact.js drag + commit-on-end shape, NOT an Alpine component for the
- * same reason (fights a 60fps drag loop) — but working in PERCENT space
- * (the canvas surface's own pixel size defines 0-100%) instead of mm,
- * since positions here are percent-of-label, not millimeters. Nothing is
- * added or removed here — every layout always has exactly these 5 rows
- * (seeded by LabelLayout::firstOrCreateForKey()), only their fields change.
+ * The web Label Designer — free x/y drag + width/height resize over a FIXED
+ * set of 5 elements (name, sku, price, barcode, image), one row per
+ * `config('labels.layouts')` key. Adapted from
+ * resources/js/admin/receipt-canvas-editor.js: same interact.js drag +
+ * commit-on-end shape, NOT an Alpine component for the same reason (fights
+ * a 60fps drag loop) — but working in PERCENT space (the canvas surface's
+ * own pixel size defines 0-100%) instead of mm, since positions here are
+ * percent-of-label, not millimeters. Nothing is added or removed here —
+ * every layout always has exactly these 5 rows (seeded by
+ * LabelLayout::firstOrCreateForKey()), only their fields change.
+ *
+ * The canvas surface is server-rendered — it's the SAME `_cell-canvas`
+ * partial the true-size preview and the print sheet use (real fonts, real
+ * barcode SVG, real logo image), not a hand-rolled placeholder. After every
+ * commit (drag end, resize end, a property-panel field, a dimension
+ * change) the surface is re-fetched from the server rather than
+ * hand-mirroring the Blade sizing rules here — one place decides how an
+ * element looks, this file just drives position/size and property edits.
  */
 import interact from 'interactjs';
 import { posPost, posPatch } from '../lib/http.js';
@@ -23,9 +32,14 @@ function init() {
     const root = document.getElementById('lbl-canvas-app');
     if (! root) return;
 
-    const canvasW = parseFloat(root.dataset.canvasW);
-    const canvasH = parseFloat(root.dataset.canvasH);
+    let canvasW = parseFloat(root.dataset.canvasW);
+    let canvasH = parseFloat(root.dataset.canvasH);
+    let pxPerMm = parseFloat(root.dataset.pxPerMm);
+    let labelWMm = parseFloat(root.dataset.labelWMm);
+    let labelHMm = parseFloat(root.dataset.labelHMm);
     const updateUrlTemplate = root.dataset.updateUrlTemplate;
+    const dimensionsUrl = root.dataset.dimensionsUrl;
+    const canvasUrl = root.dataset.canvasUrl;
     const previewUrl = root.dataset.previewUrl;
     const labels = JSON.parse(root.dataset.labels);
     let elements = JSON.parse(root.dataset.elements);
@@ -34,6 +48,9 @@ function init() {
     const panel = document.getElementById('lbl-property-panel');
     const statusEl = document.getElementById('lbl-save-status');
     const previewFrame = document.getElementById('lbl-preview-frame');
+    const dimWInput = document.getElementById('lbl-dim-w');
+    const dimHInput = document.getElementById('lbl-dim-h');
+    const dimSaveBtn = document.getElementById('lbl-dim-save');
 
     let selectedType = null;
 
@@ -54,45 +71,31 @@ function init() {
         return elements.find((e) => e.type === type);
     }
 
-    function renderElementBox(el) {
-        const box = document.createElement('div');
-        box.className = 'lbl-el';
-        box.dataset.type = el.type;
-        box.style.position = 'absolute';
-        box.style.left = (el.x_pct / 100 * canvasW) + 'px';
-        box.style.top = (el.y_pct / 100 * canvasH) + 'px';
-        box.style.minWidth = '20px';
-        box.style.minHeight = '14px';
-        box.style.padding = '2px 4px';
-        box.style.fontSize = Math.max(8, el.font_size || 10) + 'px';
-        box.style.textAlign = el.align;
-        box.style.border = '1px dashed #93c5fd';
-        box.style.background = 'rgba(239,246,255,.85)';
-        box.style.cursor = 'move';
-        box.style.opacity = el.is_visible ? '1' : '0.35';
-        box.style.userSelect = 'none';
-        box.style.whiteSpace = 'nowrap';
-        box.style.overflow = 'hidden';
-        if (el.width_pct) box.style.width = (el.width_pct / 100 * canvasW) + 'px';
-        box.textContent = labels.types[el.type] || el.type;
-        box.dataset.x = 0;
-        box.dataset.y = 0;
-        return box;
+    /** Re-fetch the real rendered cell (server is the only source of truth
+     *  for how an element looks) and re-wire drag/resize on the fresh nodes. */
+    async function refreshCanvas() {
+        try {
+            const res = await fetch(canvasUrl, { credentials: 'same-origin' });
+            surface.innerHTML = await res.text();
+        } catch (e) {
+            // The last-known-good DOM stays on screen — a failed refetch
+            // isn't worth surfacing as an error, the save itself already
+            // reports success/failure.
+        }
+        wireInteractions();
+        if (selectedType) highlightSelection(selectedType);
     }
 
-    function renderAll() {
-        surface.querySelectorAll('.lbl-el').forEach((n) => n.remove());
-        elements.forEach((el) => surface.appendChild(renderElementBox(el)));
-        wireInteractions();
-        if (selectedType) selectElement(selectedType); else renderPanel(null);
+    function highlightSelection(type) {
+        surface.querySelectorAll('.label-el').forEach((n) => {
+            n.style.outline = n.dataset.type === type ? '2px solid #2563eb' : '1px dashed #93c5fd';
+            n.style.outlineOffset = '1px';
+        });
     }
 
     function selectElement(type) {
         selectedType = type;
-        surface.querySelectorAll('.lbl-el').forEach((n) => {
-            n.style.borderColor = n.dataset.type === type ? '#2563eb' : '#93c5fd';
-            n.style.borderWidth = n.dataset.type === type ? '2px' : '1px';
-        });
+        highlightSelection(type);
         renderPanel(findEl(type));
     }
 
@@ -103,6 +106,7 @@ function init() {
             const el = findEl(type);
             if (el) el[field] = value;
             setStatus(labels.saved);
+            await refreshCanvas();
             refreshPreview();
         } catch (e) {
             setStatus(labels.saveFailed);
@@ -121,14 +125,13 @@ function init() {
         const rows = [];
         rows.push(`<div style="font-weight:600; margin-bottom:8px;">${(labels.types[el.type] || el.type).replace(/</g, '&lt;')}</div>`);
         rows.push(checkboxRow('is_visible', el.is_visible, 'visible'));
+        rows.push(sizeRow(el));
 
         if (FONT_TYPES.includes(el.type)) {
             rows.push(fieldRow('font_size', 'number', el.font_size, { min: 5, max: 48 }));
             rows.push(fontFamilyRow(el.font_family));
-            rows.push(alignRow(el.align));
-        } else {
-            rows.push(scaleRow(el.scale));
         }
+        rows.push(alignRow(el.align));
 
         if (el.type === 'image') {
             rows.push(imageRow(el));
@@ -147,11 +150,23 @@ function init() {
         </label>`;
     }
 
-    function scaleRow(current) {
-        return `<label class="field" style="margin-bottom:8px;">
-            <span class="field-label">Size</span>
-            <input type="number" class="pos-input" data-field="scale" value="${current}" min="0.1" max="3" step="0.1">
-        </label>`;
+    /**
+     * Width/height — every element type gets these now (drag a corner on
+     * the canvas itself for the same effect; these inputs are for typing
+     * an exact percent). Blank means "auto" — the element's old implicit
+     * sizing (font/line-height for text, `scale` for barcode/image).
+     */
+    function sizeRow(el) {
+        return `<div style="display:flex; gap:8px; margin-bottom:8px;">
+            <label class="field" style="flex:1;">
+                <span class="field-label">Width %</span>
+                <input type="number" class="pos-input" data-field="width_pct" value="${el.width_pct ?? ''}" min="1" max="100" step="1" placeholder="auto">
+            </label>
+            <label class="field" style="flex:1;">
+                <span class="field-label">Height %</span>
+                <input type="number" class="pos-input" data-field="height_pct" value="${el.height_pct ?? ''}" min="1" max="100" step="1" placeholder="auto">
+            </label>
+        </div>`;
     }
 
     function fontFamilyRow(current) {
@@ -202,8 +217,15 @@ function init() {
             input.addEventListener(evt, () => {
                 const field = input.dataset.field;
                 let value = input.type === 'checkbox' ? input.checked : input.value;
-                if (input.type === 'number') value = parseFloat(value);
-                saveField(el.type, field, value).then(() => renderAll());
+                if (input.type === 'number') {
+                    // Width/height are nullable ("auto") — an emptied field
+                    // clears back to the old implicit sizing instead of
+                    // coercing to 0/NaN.
+                    value = value === '' ? null : parseFloat(value);
+                } else if (value === '') {
+                    value = null;
+                }
+                saveField(el.type, field, value);
             });
         });
 
@@ -219,7 +241,8 @@ function init() {
                     const { data } = await postAsPatch(updateUrl(el.type), form);
                     if (data?.config !== undefined) el.config = data.config;
                     setStatus(labels.saved);
-                    renderAll();
+                    await refreshCanvas();
+                    renderPanel(el);
                     refreshPreview();
                 } catch (e) {
                     setStatus(labels.saveFailed);
@@ -235,7 +258,8 @@ function init() {
                     const { data } = await posPatch(updateUrl(el.type), { image_remove: true });
                     if (data?.config !== undefined) el.config = data.config;
                     setStatus(labels.saved);
-                    renderAll();
+                    await refreshCanvas();
+                    renderPanel(el);
                     refreshPreview();
                 } catch (e) {
                     setStatus(labels.saveFailed);
@@ -245,8 +269,8 @@ function init() {
     }
 
     function wireInteractions() {
-        interact('.lbl-el').unset();
-        interact('.lbl-el')
+        interact('#lbl-canvas-surface .label-el').unset();
+        interact('#lbl-canvas-surface .label-el')
             .draggable({
                 listeners: {
                     move(event) {
@@ -269,11 +293,40 @@ function init() {
                         target.dataset.x = 0;
                         target.dataset.y = 0;
                         target.style.transform = '';
-                        target.style.left = (el.x_pct / 100 * canvasW) + 'px';
-                        target.style.top = (el.y_pct / 100 * canvasH) + 'px';
+                        target.style.left = el.x_pct + '%';
+                        target.style.top = el.y_pct + '%';
                         posPatch(updateUrl(type), { x_pct: el.x_pct, y_pct: el.y_pct }).then(() => {
                             setStatus(labels.saved);
+                            refreshCanvas();
                             refreshPreview();
+                        }).catch(() => setStatus(labels.saveFailed));
+                    },
+                },
+            })
+            .resizable({
+                // Bottom/right only — resizing from the top/left edge would
+                // also shift x/y, which would need a second coordinate
+                // update on every resize. Dragging the element afterwards
+                // covers repositioning just as well.
+                edges: { left: false, right: true, bottom: true, top: false },
+                listeners: {
+                    move(event) {
+                        const target = event.target;
+                        target.style.width = event.rect.width + 'px';
+                        target.style.height = event.rect.height + 'px';
+                    },
+                    end(event) {
+                        const target = event.target;
+                        const type = target.dataset.type;
+                        const el = findEl(type);
+                        if (! el) return;
+                        el.width_pct = Math.max(1, Math.min(100, (event.rect.width / canvasW) * 100));
+                        el.height_pct = Math.max(1, Math.min(100, (event.rect.height / canvasH) * 100));
+                        posPatch(updateUrl(type), { width_pct: el.width_pct, height_pct: el.height_pct }).then(() => {
+                            setStatus(labels.saved);
+                            refreshCanvas();
+                            refreshPreview();
+                            if (selectedType === type) renderPanel(el);
                         }).catch(() => setStatus(labels.saveFailed));
                     },
                 },
@@ -287,7 +340,33 @@ function init() {
         btn.addEventListener('click', () => selectElement(btn.dataset.selectType));
     });
 
-    renderAll();
+    if (dimSaveBtn) {
+        dimSaveBtn.addEventListener('click', async () => {
+            const w = parseFloat(dimWInput.value);
+            const h = parseFloat(dimHInput.value);
+            if (! w || ! h) return;
+            setStatus(labels.saving);
+            try {
+                await posPatch(dimensionsUrl, { label_w_mm: w, label_h_mm: h });
+                labelWMm = w;
+                labelHMm = h;
+                // Same clamp formula as designer.blade.php's initial render.
+                pxPerMm = Math.max(4, Math.min(10, 260 / Math.max(w, h)));
+                canvasW = Math.round(w * pxPerMm);
+                canvasH = Math.round(h * pxPerMm);
+                surface.style.width = canvasW + 'px';
+                surface.style.height = canvasH + 'px';
+                setStatus(labels.saved);
+                await refreshCanvas();
+                refreshPreview();
+            } catch (e) {
+                setStatus(labels.saveFailed);
+            }
+        });
+    }
+
+    wireInteractions();
+    renderPanel(null);
 }
 
 document.addEventListener('DOMContentLoaded', init);

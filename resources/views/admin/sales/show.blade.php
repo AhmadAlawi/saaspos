@@ -191,10 +191,14 @@
                                         <td class="num tnum">{{ $p->tendered_amount ? format_money($p->tendered_amount) : '—' }}</td>
                                         <td class="num tnum font-medium">{{ format_money($p->amount) }}</td>
                                         @if ($canChangePaymentMethod)
-                                            <td>
+                                            <td class="flex gap-2">
                                                 <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost"
                                                         @click="editing = editing === {{ $p->id }} ? null : {{ $p->id }}">
                                                     {{ __('sales.payments.change_method') }}
+                                                </button>
+                                                <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost"
+                                                        @click="editing = editing === 'split-{{ $p->id }}' ? null : 'split-{{ $p->id }}'">
+                                                    {{ __('sales.payments.split_method') }}
                                                 </button>
                                             </td>
                                         @endif
@@ -227,6 +231,66 @@
                                                     <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost" @click="editing = null">
                                                         {{ __('sales.payments.cancel') }}
                                                     </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+
+                                        {{-- Split one tender across several payment methods — e.g. a
+                                             single card payment discovered afterward to have actually
+                                             been part card, part cash. See SplitSalePayment. --}}
+                                        <tr x-show="editing === 'split-{{ $p->id }}'" x-cloak
+                                            x-data="{ splits: [{ payment_method_id: {{ $p->payment_method_id }}, amount: '{{ $p->amount }}' }, { payment_method_id: '', amount: '' }] }">
+                                            <td colspan="6" class="bg-subtle">
+                                                <form method="POST"
+                                                      action="{{ route('admin.sales.payments.split', [$sale, $p]) }}"
+                                                      data-ajax-form
+                                                      class="py-1">
+                                                    @csrf
+                                                    @method('PATCH')
+                                                    <div class="text-xs fg-tertiary mb-2">
+                                                        {{ __('sales.payments.split_hint', ['total' => format_money($p->amount)]) }}
+                                                    </div>
+                                                    <template x-for="(row, i) in splits" :key="i">
+                                                        <div class="flex flex-wrap items-end gap-2 mb-2">
+                                                            <label class="field" style="margin-bottom:0;">
+                                                                <span class="field-label is-required">{{ __('sales.payments.method') }}</span>
+                                                                <select :name="`splits[${i}][payment_method_id]`" class="pos-input" required x-model="row.payment_method_id">
+                                                                    <option value="">{{ __('sales.payments.method') }}</option>
+                                                                    @foreach ($paymentMethods as $m)
+                                                                        <option value="{{ $m->id }}">{{ $m->name }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                            </label>
+                                                            <label class="field" style="margin-bottom:0;">
+                                                                <span class="field-label is-required">{{ __('sales.payments.amount') }}</span>
+                                                                <input type="number" step="0.01" min="0.01" :name="`splits[${i}][amount]`"
+                                                                       class="pos-input" style="width:120px;" required x-model="row.amount">
+                                                            </label>
+                                                            <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost"
+                                                                    x-show="splits.length > 2" @click="splits.splice(i, 1)">
+                                                                {{ __('sales.payments.remove_split') }}
+                                                            </button>
+                                                        </div>
+                                                    </template>
+                                                    <div class="flex flex-wrap items-end gap-2">
+                                                        <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost"
+                                                                @click="splits.push({ payment_method_id: '', amount: '' })">
+                                                            {{ __('sales.payments.add_split') }}
+                                                        </button>
+                                                    </div>
+                                                    <label class="field mt-2" style="margin-bottom:0; max-width:420px;">
+                                                        <span class="field-label is-required">{{ __('sales.payments.reason') }}</span>
+                                                        <input type="text" name="reason" class="pos-input" maxlength="255" required
+                                                               placeholder="{{ __('sales.payments.reason_placeholder') }}">
+                                                    </label>
+                                                    <div class="flex gap-2 mt-2">
+                                                        <button type="submit" class="pos-btn pos-btn-sm pos-btn-primary">
+                                                            {{ __('sales.payments.save') }}
+                                                        </button>
+                                                        <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost" @click="editing = null">
+                                                            {{ __('sales.payments.cancel') }}
+                                                        </button>
+                                                    </div>
                                                 </form>
                                             </td>
                                         </tr>
@@ -422,6 +486,55 @@
                         @endif
                     </div>
                 </div>
+
+                {{-- Camera footage (beta) — super-admin only, async request
+                     against the store's NVR (see CameraClipController /
+                     PrepareCameraClip). Not a permission-gated feature like
+                     the rest of this page; same reasoning as the Audit Log. --}}
+                @if (auth()->user()?->is_super_admin)
+                    <div class="card"
+                         x-data="cameraClipWidget({
+                            subjectType: 'sale',
+                            subjectId: {{ $sale->id }},
+                            lookupUrl: {{ \Illuminate\Support\Js::from(route('admin.camera-clips.lookup')) }},
+                            storeUrl: {{ \Illuminate\Support\Js::from(route('admin.camera-clips.store')) }},
+                         })"
+                         x-init="init()">
+                        <div class="card-header"><div>
+                            <div class="card-title">Camera footage <span class="prod-badge prod-badge-muted">Beta</span></div>
+                            <div class="card-title-sub">The transaction's actual footage window, not a live feed. Preparing a clip can take a minute or more — feel free to navigate away and come back.</div>
+                        </div></div>
+                        <div class="card-body text-sm">
+                            <template x-if="!clip">
+                                <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost" :disabled="loading" @click="request()">
+                                    <span x-show="!loading">Get video</span>
+                                    <span x-show="loading">Requesting…</span>
+                                </button>
+                            </template>
+                            <template x-if="clip && (clip.status === 'pending' || clip.status === 'processing')">
+                                <div class="flex items-center gap-2">
+                                    <svg class="animate-spin h-4 w-4 fg-tertiary" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                                    </svg>
+                                    <span class="fg-tertiary">Preparing footage…</span>
+                                </div>
+                            </template>
+                            <template x-if="clip && clip.status === 'failed'">
+                                <div>
+                                    <p class="field-error mb-2" x-text="clip.error || 'Could not prepare this clip.'"></p>
+                                    <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost" :disabled="loading" @click="request()">Try again</button>
+                                </div>
+                            </template>
+                            <template x-if="clip && clip.status === 'ready'">
+                                <div>
+                                    <video :src="clip.url" controls preload="none" style="width:100%; max-width:360px; border-radius:var(--radius-md,8px); display:block; background:#000;"></video>
+                                    <a class="pos-btn pos-btn-xs pos-btn-ghost mt-2" :href="clip.url" download>⬇ Download</a>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     </div>

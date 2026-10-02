@@ -40,13 +40,16 @@ class Shift extends Model
             'closed_at'              => 'datetime',
             'opening_cash'           => 'decimal:4',
             'closing_cash_counted'   => 'decimal:4',
+            'closing_card_counted'   => 'decimal:4',
             'expected_cash'          => 'decimal:4',
             'cash_variance'          => 'decimal:4',
+            'card_variance'          => 'decimal:4',
             'sales_total'            => 'decimal:4',
             'refunds_total'          => 'decimal:4',
             'opening_denominations'  => 'array',
             'closing_denominations'  => 'array',
             'payment_totals'         => 'array',
+            'frozen_totals'          => 'array',
         ];
     }
 
@@ -101,6 +104,28 @@ class Shift extends Model
         return self::query()
             ->where('store_id', $storeId)
             ->where('user_id', $userId)
+            ->where('status', self::STATUS_OPEN)
+            ->latest('opened_at')
+            ->first();
+    }
+
+    /**
+     * The open shift currently running on a terminal, regardless of who
+     * owns it — a manager/admin refunding from the back office has no
+     * personal open shift, but the cash they're moving still belongs to
+     * whichever till is physically open on that terminal right now.
+     * Used as the fallback when {@see openForCashier} comes up empty so
+     * a refund never ends up bound to no shift at all (see
+     * {@see \App\Actions\Sales\RecordSaleReturn}).
+     */
+    public static function openForTerminal(?int $terminalId): ?self
+    {
+        if (! $terminalId) {
+            return null;
+        }
+
+        return self::query()
+            ->where('terminal_id', $terminalId)
             ->where('status', self::STATUS_OPEN)
             ->latest('opened_at')
             ->first();

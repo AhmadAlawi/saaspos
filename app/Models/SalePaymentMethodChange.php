@@ -16,12 +16,15 @@ class SalePaymentMethodChange extends Model
     protected $fillable = [
         'sale_id', 'sale_payment_id',
         'old_payment_method_id', 'new_payment_method_id',
+        'old_amount', 'amount',
         'reason', 'changed_by', 'changed_at',
     ];
 
     protected function casts(): array
     {
         return [
+            'old_amount' => 'decimal:4',
+            'amount'     => 'decimal:4',
             'changed_at' => 'datetime',
         ];
     }

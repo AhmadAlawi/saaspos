@@ -10,6 +10,7 @@ use App\Models\ProductVariant;
 use App\Models\Sale;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnItem;
+use App\Models\Shift;
 use App\Models\Store;
 use App\Models\User;
 use App\Support\NumberFormat;
@@ -110,10 +111,22 @@ class RecordBlindReturn
                 ];
             }
 
+            // Bind to the cashier's open shift, same as RecordSaleReturn —
+            // without it, cash-drawer reconciliation and the X/Z-report
+            // never see this refund at all. Falls back to whichever shift
+            // is open on the current terminal when the acting user (e.g.
+            // a manager refunding from the back office) has no personal
+            // open shift — see RecordSaleReturn's doc-comment for the
+            // real refund that silently vanished from every report this
+            // way before the fallback existed.
+            $refundShift = Shift::openForCashier($store->id, (int) $cashier->id)
+                ?? Shift::openForTerminal(current_terminal_id());
+
             $return = new SaleReturn();
             $return->forceFill([
                 'store_id'               => $store->id,
                 'sale_id'                => null,
+                'shift_id'               => $refundShift?->id,
                 'is_blind'               => true,
                 'client_uuid'            => $input['client_uuid'] ?? null,
                 'original_currency_code' => $store->currency_code ?? null,

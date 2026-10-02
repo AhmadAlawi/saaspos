@@ -18,7 +18,7 @@ class SalesSummaryReportController extends Controller
 
     public function index(Request $request): View
     {
-        abort_unless($request->user()?->hasPermission('reports.view_financial'), 403);
+        abort_unless($request->user()?->hasPermission('reports.view_financial') && $request->user()?->hasPermission('sales.view_amounts'), 403);
 
         [$from, $to, $storeId, $period] = $this->reportFilters($request);
         $data = ($this->query)($from, $to, $storeId);
@@ -35,7 +35,7 @@ class SalesSummaryReportController extends Controller
 
     public function export(Request $request, ExportSalesSummary $export): StreamedResponse
     {
-        abort_unless($request->user()?->hasPermission('reports.view_financial'), 403);
+        abort_unless($request->user()?->hasPermission('reports.view_financial') && $request->user()?->hasPermission('sales.view_amounts'), 403);
 
         [$from, $to, $storeId] = $this->reportFilters($request);
         $data   = ($this->query)($from, $to, $storeId);

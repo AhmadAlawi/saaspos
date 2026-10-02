@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Crypt;
  */
 class RefundApprovalToken
 {
-    private const TTL_SECONDS = 300; // 5 minutes: approve → submit the refund.
+    private const TTL_SECONDS = 900; // 15 minutes: approve → submit the refund — 5 was tripping on real, non-idle refunds (same fix as DiscountApprovalToken).
 
     /** Issue a token authorising up to `$maxAmount` on `$storeId`. */
     public function issue(int $approverId, int $storeId, string $maxAmount): string
@@ -58,8 +58,15 @@ class RefundApprovalToken
         if ((int) ($data['exp'] ?? 0) < now()->getTimestamp()) {
             return null;
         }
-        // The submitted refund must be within the approved ceiling.
-        if (bccomp($refundTotal, (string) ($data['max'] ?? '0'), 4) > 0) {
+        // The submitted refund must be within the approved ceiling. A
+        // small absolute hair absorbs sub-cent rounding drift between
+        // the client's displayed total at approval time and the
+        // server's own recomputation at submit time (same reasoning as
+        // DiscountApprovalToken's 0.05% hair, just an absolute money
+        // amount here since a refund has no natural percent to scale
+        // the tolerance by).
+        $approvedCeiling = bcadd((string) ($data['max'] ?? '0'), '0.01', 4);
+        if (bccomp($refundTotal, $approvedCeiling, 4) > 0) {
             return null;
         }
 

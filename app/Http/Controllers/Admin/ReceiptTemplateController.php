@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Hardware\DuplicateReceiptTemplate;
+use App\Actions\Hardware\PreparePrintPayload;
 use App\Actions\Hardware\SetDefaultReceiptTemplate;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReceiptTemplateRequest;
 use App\Models\ReceiptTemplate;
 use App\Models\ReceiptTemplateBlock;
+use App\Models\Sale;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -119,5 +123,47 @@ class ReceiptTemplateController extends Controller
 
         return redirect()->route('admin.receipt-templates.index')
             ->with('success', __('receipt_templates.flash.default_set', ['name' => $receiptTemplate->name]));
+    }
+
+    /**
+     * Deep-copy a template (its blocks or elements, whichever side its
+     * layout_mode uses) so it can be edited/tested without touching the
+     * live one — jumps straight to editing the copy.
+     */
+    public function duplicate(ReceiptTemplate $receiptTemplate, DuplicateReceiptTemplate $duplicate): RedirectResponse
+    {
+        $this->authorize('settings.manage_receipt_templates');
+
+        $copy = ($duplicate)($receiptTemplate);
+
+        $editRoute = $copy->layout_mode === ReceiptTemplate::LAYOUT_CANVAS
+            ? 'admin.receipt-templates.canvas.edit'
+            : 'admin.receipt-templates.blocks.edit';
+
+        return redirect()->route($editRoute, $copy)
+            ->with('success', __('receipt_templates.flash.duplicated', ['name' => $copy->name]));
+    }
+
+    /**
+     * Print payload for the editor's "Test print" button — same
+     * {mode,paper,html,escpos_bytes} shape checkout's own receipt print
+     * uses, forced against THIS specific template (bypassing the normal
+     * terminal/store/default resolution) and a real sale, so what prints
+     * is exactly what a customer would get if this template went live.
+     * Defaults to the store's most recent sale when none is given —
+     * same convention {@see ReceiptTemplateBlockController::preview()}
+     * already uses for its HTML-only iframe preview.
+     */
+    public function testPrint(Request $request, ReceiptTemplate $receiptTemplate, PreparePrintPayload $prepare): JsonResponse
+    {
+        $this->authorize('settings.manage_receipt_templates');
+
+        $sale = $request->integer('sale_id')
+            ? Sale::findOrFail($request->integer('sale_id'))
+            : Sale::query()->latest()->firstOrFail();
+
+        return response()->json(
+            ($prepare)($sale, current_terminal(), $receiptTemplate)
+        )->header('Cache-Control', 'no-store');
     }
 }

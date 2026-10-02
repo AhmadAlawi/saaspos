@@ -8,6 +8,7 @@ use App\Models\Sale;
 use App\Models\SaleItem;
 use App\Models\SaleReturn;
 use App\Models\SaleReturnItem;
+use App\Models\Shift;
 use App\Models\Store;
 use App\Models\User;
 use App\Support\NumberFormat;
@@ -159,11 +160,33 @@ class RecordSaleReturn
                 ];
             }
 
-            // Header row.
+            // Header row. `shift_id` binds this refund to whichever shift
+            // the cashier currently has open (same lookup CompleteSale
+            // uses) so cash-drawer reconciliation and the X/Z-report
+            // actually see it — without this, ComputeShiftTotals's
+            // `SaleReturn::where('shift_id', ...)` query never matches
+            // anything, silently overstating every shift's expected cash
+            // by however much was refunded during it.
+            //
+            // Falls back to whichever shift is open on the SALE'S OWN
+            // terminal, then the current request's terminal, when the
+            // acting user has no personal open shift — a manager/admin
+            // processing a refund from the back office never opens a
+            // cashier shift themselves, but the cash still physically
+            // leaves whichever till is running. Without this fallback the
+            // refund landed with `shift_id = null` and silently never
+            // appeared on ANY Z-report, past or future (confirmed: a real
+            // JOD4.99 cash refund vanished from reporting entirely this
+            // way).
+            $refundShift = Shift::openForCashier($store->id, (int) $cashier->id)
+                ?? Shift::openForTerminal($sale->terminal_id)
+                ?? Shift::openForTerminal(current_terminal_id());
+
             $return = new SaleReturn();
             $return->forceFill([
                 'store_id'                    => $store->id,
                 'sale_id'                     => $sale->id,
+                'shift_id'                    => $refundShift?->id,
                 'client_uuid'                 => $input['client_uuid'] ?? null,
                 'original_currency_code'      => $sale->currency_code,
                 'exchange_rate_to_active'     => '1',

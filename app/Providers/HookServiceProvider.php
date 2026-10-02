@@ -11,6 +11,7 @@ use App\Actions\Accounting\PostSaleVoidEntry;
 use App\Actions\Accounting\PostShiftVarianceEntry;
 use App\Actions\Accounting\PostStockAdjustmentEntry;
 use App\Actions\Accounting\PostSupplierPaymentEntry;
+use App\Actions\Customers\EarnLoyaltyPoints;
 use App\Actions\Reports\MarkDailyMetricsStale;
 use App\Actions\Reports\RefreshDailyMetrics;
 use App\Hooks\HookManager;
@@ -135,6 +136,17 @@ class HookServiceProvider extends ServiceProvider
         $hooks->addAction('sale.after_complete', function ($sale) {
             try {
                 app(PostSaleEntry::class)($sale);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        });
+
+        // ── Loyalty: award points for a completed sale ─────────────────────
+        // Best-effort like every other post-sale side effect here — a
+        // failure never blocks or reverses the sale itself.
+        $hooks->addAction('sale.after_complete', function ($sale) {
+            try {
+                app(EarnLoyaltyPoints::class)->handle($sale);
             } catch (\Throwable $e) {
                 report($e);
             }

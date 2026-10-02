@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -20,6 +24,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Product extends Model
 {
+    use Auditable;
+
     use SoftDeletes;
 
     protected $fillable = [
@@ -239,6 +245,19 @@ class Product extends Model
     public function kitItems(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ProductKitItem::class, 'parent_product_id')->orderBy('sort_order');
+    }
+
+    /**
+     * The captured-photo gallery (mobile floor-capture tool) — additive,
+     * separate from the single `image_path` above. Newest first so the
+     * admin review strip and the capture page's thumbnail list both
+     * show the latest shot up front.
+     *
+     * @return MorphMany<ProductImage, $this>
+     */
+    public function photos(): MorphMany
+    {
+        return $this->morphMany(ProductImage::class, 'imageable')->latest('id');
     }
 
     /**

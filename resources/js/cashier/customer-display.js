@@ -38,9 +38,11 @@ export function customerDisplay(bootstrap = {}) {
         payQr:    '',       // data-URL of the pay_url QR (payment state)
         upiQr:    '',       // data-URL of the upi_pay_url QR (payment state)
         receiptQr: '',      // data-URL of the receipt_url QR (thank-you state)
+        claimQr:   '',      // data-URL of the claim_url QR (thank-you state, no customer)
         _payQrUrl: null,    // last URLs we rendered, to skip redundant regens
         _upiQrUrl: null,
         _receiptQrUrl: null,
+        _claimQrUrl: null,
         _lastSeq: -1,
         _unsub:   null,
 
@@ -112,6 +114,12 @@ export function customerDisplay(bootstrap = {}) {
             if (receiptUrl !== this._receiptQrUrl) {
                 this._receiptQrUrl = receiptUrl;
                 this.receiptQr = receiptUrl ? await this._toQr(receiptUrl, 200) : '';
+            }
+
+            const claimUrl = this.snap?.thankyou?.claim_url || null;
+            if (claimUrl !== this._claimQrUrl) {
+                this._claimQrUrl = claimUrl;
+                this.claimQr = claimUrl ? await this._toQr(claimUrl, 200) : '';
             }
         },
 

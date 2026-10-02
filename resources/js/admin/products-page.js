@@ -308,6 +308,48 @@ export function productsPage(config = {}) {
                     this.$store.toasts?.push({ type: 'success', message: data.message });
                 }
             },
+
+            // ── Camera barcode scan ─────────────────────────────────
+            // Find-to-edit while walking the floor with no USB scanner —
+            // scan a product's barcode and the grid/table filters straight
+            // to it (same `search` the typed box uses, which already
+            // matches extra/linked barcodes too — see filteredBase()).
+            cameraOpen:  false,
+            cameraError: '',
+
+            async openCamera() {
+                this.cameraError = '';
+                if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+                    this.$store.toasts?.push({ type: 'warning', message: 'No camera available on this device.' });
+                    return;
+                }
+                this.cameraOpen = true;
+                await this.$nextTick();
+                const videoEl = this.$refs.productsCameraVideo;
+                if (!videoEl) return;
+                try {
+                    const { CameraBarcodeScanner } = await import('../hardware/camera-scanner.js');
+                    this._cameraScanner = new CameraBarcodeScanner(videoEl);
+                    await this._cameraScanner.start((text) => this.onCameraScan(text));
+                } catch (e) {
+                    this.cameraError = (e && /permission|denied|NotAllowed/i.test(e.name + e.message))
+                        ? 'Camera permission denied. Allow camera access to scan.'
+                        : 'Could not start the camera.';
+                }
+            },
+
+            closeCamera() {
+                try { this._cameraScanner?.stop(); } catch (_) { /* noop */ }
+                this._cameraScanner = null;
+                this.cameraOpen = false;
+            },
+
+            onCameraScan(text) {
+                const code = String(text || '').trim();
+                if (!code) return;
+                this.closeCamera();
+                this.search = code;
+            },
         },
     );
 }

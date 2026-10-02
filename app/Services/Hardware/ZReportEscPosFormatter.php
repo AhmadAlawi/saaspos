@@ -54,6 +54,7 @@ class ZReportEscPosFormatter
         $out .= $this->row(__('shifts.totals.tax_total'), format_money($totals['tax_total']), $w);
         $out .= $this->row(__('shifts.totals.refunds_total'), format_money($totals['refunds_total']), $w);
         $out .= $this->row(__('shifts.totals.sales_count'), (string) $totals['sales_count'], $w);
+        $out .= $this->row(__('shifts.totals.net_sales_total'), format_money($totals['net_sales_total']), $w);
 
         /* ── Payments received ─────────────────────────────────── */
         $out .= $this->rule($w);
@@ -84,6 +85,22 @@ class ZReportEscPosFormatter
             $out .= $this->row(__('shifts.totals.counted_cash'), format_money($shift->closing_cash_counted), $w);
             $out .= $E::BOLD_ON;
             $out .= $this->row(__('shifts.totals.variance'), format_money($shift->cash_variance), $w);
+            $out .= $E::BOLD_OFF;
+        }
+
+        if ($shift->closing_card_counted !== null) {
+            $expectedCard = '0';
+            foreach (($totals['payment_totals'] ?? []) as $row) {
+                if (($row['type'] ?? null) === 'card') {
+                    $expectedCard = bcadd($expectedCard, (string) ($row['amount'] ?? '0'), 4);
+                }
+            }
+            $out .= $this->rule($w);
+            $out .= $E::BOLD_ON.$this->clean(__('shifts.sections.card_reconciliation'))."\n".$E::BOLD_OFF;
+            $out .= $this->row(__('shifts.fields.expected_card'), format_money($expectedCard), $w);
+            $out .= $this->row(__('shifts.totals.counted_card'), format_money($shift->closing_card_counted), $w);
+            $out .= $E::BOLD_ON;
+            $out .= $this->row(__('shifts.fields.card_variance'), format_money($shift->card_variance), $w);
             $out .= $E::BOLD_OFF;
         }
 

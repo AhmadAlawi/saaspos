@@ -11,11 +11,11 @@ export function saleRefundPage({ rows = [], defaultMethodId = null } = {}) {
     return {
         // Each row gets a `refundQty` (number) and `restock` (null / bool).
         // Empty restock = "inherit the header flag"; explicit on/off
-        // wins. Initial qty is the full remaining amount so a one-click
-        // full refund needs no edits.
+        // wins. Every row starts at 0 — the operator picks what's being
+        // refunded by increasing only the affected lines.
         rows: rows.map((r) => ({
             ...r,
-            refundQty: parseFloat(r.remaining) || 0,
+            refundQty: 0,
             restock:   null,
         })),
 

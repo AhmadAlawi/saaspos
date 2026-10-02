@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Crypt;
  */
 class DiscountApprovalToken
 {
-    private const TTL_SECONDS = 300; // 5 minutes: approve → ring up.
+    private const TTL_SECONDS = 900; // 15 minutes: approve → ring up — 5 was tripping on real, non-idle checkouts (drawer opens, split tenders, customer questions).
 
     /** Issue a token authorising up to `$maxPercent` on `$storeId`. */
     public function issue(int $approverId, int $storeId, float $maxPercent): string
@@ -56,8 +56,21 @@ class DiscountApprovalToken
         if ((int) ($data['exp'] ?? 0) < now()->getTimestamp()) {
             return null;
         }
-        // The rung-up discount must be within the approved ceiling.
-        if (bccomp($effectivePercent, (string) ($data['max'] ?? '0'), 4) > 0) {
+        // The rung-up discount must be within the approved ceiling. The
+        // approved `max` is whatever percent the CASHIER'S BROWSER
+        // computed in JS float math at approval time; the ring-up side
+        // recomputes `$effectivePercent` from scratch via bcmath off the
+        // server's own per-line-rounded PriceCart totals. On a single
+        // round-number discount these agree exactly, but a cart with
+        // several differently-discounted lines accumulates enough
+        // float-vs-decimal rounding drift (confirmed: a legitimately
+        // manager-approved multi-item discount came back a few
+        // thousandths of a percent higher server-side) to fail a
+        // zero-tolerance compare — rejecting an approval the manager
+        // already granted. Same 0.05% hair {@see AuthorizeDiscount}
+        // already uses for its own rounding-drift absorption.
+        $approvedCeiling = bcadd((string) ($data['max'] ?? '0'), '0.05', 4);
+        if (bccomp($effectivePercent, $approvedCeiling, 4) > 0) {
             return null;
         }
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Cashier;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Sale;
+use App\Models\Terminal;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,24 +21,31 @@ use Illuminate\Support\Facades\Cache;
  * last snapshot it received. Idle attract copy + store branding come from
  * this server bootstrap so the idle screen has something to show before any
  * sale starts. See docs/features/customer-display.md §5 (Tier 1).
+ *
+ * `show()` and `state()` are deliberately NOT behind `auth` — this screen
+ * faces the SHOPPER, not the cashier, and is opened once as a long-lived
+ * second-screen window. If it depended on the cashier's session (like it
+ * used to, resolving the terminal from `current_terminal()`/session), the
+ * customer would get bounced to the login page the moment that session
+ * expired or the cashier logged out — mid-queue, in front of a customer.
+ * The terminal is instead resolved from an explicit `?terminal=` id baked
+ * into the URL when the cashier opens the window, so this page never
+ * needs a session at all. `push()` stays auth-gated — it's the cashier's
+ * OWN tab posting its live cart, which is only ever open while they're
+ * signed in anyway.
  */
 class CustomerDisplayController extends Controller
 {
-    public function show(): View
+    public function show(Request $request): View
     {
-        // Only staff who can ring up a sale may open the customer display —
-        // it's launched from an authenticated cashier session and shows
-        // customer-safe data only (never cost/margin).
-        $this->authorize('create', Sale::class);
-
-        $store    = current_store();
+        $terminal = Terminal::with('store')->find((int) $request->query('terminal'));
+        $store    = $terminal?->store;
         $company  = Company::current();
-        $terminal = current_terminal();
         $cfd      = $terminal?->cfd_config ?? [];
 
         // Same channel string the cashier computes — scoped per terminal so
         // two POS on one machine can't cross-talk; 'default' when unbound.
-        $channel = 'pos-cfd:'.(current_terminal_id() ?: 'default');
+        $channel = 'pos-cfd:'.($terminal?->id ?: 'default');
 
         // Cashier-specific theme default (falls back to the company default),
         // mirroring how <x-cashier-layout> resolves it — so the display opens
@@ -63,7 +71,7 @@ class CustomerDisplayController extends Controller
             // Transport (Slice 4): 'same_machine' → BroadcastChannel;
             // 'separate_device' → poll the per-terminal state endpoint.
             'transport' => $cfd['transport'] ?? 'same_machine',
-            'poll_url'  => route('cashier.display.state', ['terminal' => current_terminal_id() ?: 0]),
+            'poll_url'  => route('cashier.display.state', ['terminal' => $terminal?->id ?: 0]),
             'currency' => [
                 'symbol'       => $currency['symbol'] ?? '',
                 'symbol_first' => (bool) ($currency['symbol_first'] ?? true),
@@ -119,6 +127,8 @@ class CustomerDisplayController extends Controller
                 'change'      => __('customer-display.thankyou.change'),
                 'receipt_scan' => __('customer-display.thankyou.receipt_scan'),
                 'receipt_hint' => __('customer-display.thankyou.receipt_hint'),
+                'claim_scan'   => __('customer-display.thankyou.claim_scan'),
+                'claim_hint'   => __('customer-display.thankyou.claim_hint'),
             ],
         ];
 
@@ -158,13 +168,12 @@ class CustomerDisplayController extends Controller
 
     /**
      * Return the last snapshot pushed for a terminal (or an empty object).
-     * Polled ~every 1.5s by a separate-device display. Auth-gated the same
-     * way the display page is — the tablet runs in a signed-in session.
+     * Polled ~every 1.5s by a separate-device display. NOT auth-gated —
+     * see the class docblock; the tablet polling this is the customer's
+     * own device and never signs in at all.
      */
     public function state(int $terminal): JsonResponse
     {
-        $this->authorize('create', Sale::class);
-
         return response()->json(Cache::get($this->stateKey($terminal)) ?: (object) []);
     }
 

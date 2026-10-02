@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -15,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class TaxGroup extends Model
 {
+    use Auditable;
+
     protected $fillable = [
         'code',
         'name',

@@ -250,6 +250,33 @@ class Sale extends Model
         return $publicDomain ? rtrim($publicDomain, '/') . $path : url($path);
     }
 
+    /**
+     * The live claim link for this sale, minting one on first ask. Only
+     * relevant for a sale with no customer attached — see
+     * {@see \App\Models\SaleClaimLink} / {@see \App\Http\Controllers\SaleClaimController}.
+     */
+    public function ensureClaimLink(): SaleClaimLink
+    {
+        return SaleClaimLink::for($this);
+    }
+
+    /**
+     * The CFD's claim-QR target — null once a customer is already
+     * attached (nothing to claim) so callers can skip minting a link
+     * that would never be used.
+     */
+    public function claimUrl(): ?string
+    {
+        if ($this->customer_id) {
+            return null;
+        }
+
+        $path = route('sale.claim', ['token' => $this->ensureClaimLink()->token], false);
+        $publicDomain = config('app.receipt_public_url');
+
+        return $publicDomain ? rtrim($publicDomain, '/') . $path : url($path);
+    }
+
     /** Payment-method providers that are true online gateways. */
     public const GATEWAY_PROVIDERS = ['stripe', 'razorpay', 'paystack', 'flutterwave', 'mercado_pago'];
 

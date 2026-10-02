@@ -25,6 +25,18 @@ class RolesSeeder extends Seeder
             'accounting.unlock_period',
             'accounting.year_end_close',
             'accounting.opening_balances',
+            // Sale/shift money figures are restricted to specific named
+            // people, not a role tier — off for Manager by default, on
+            // for whoever the business explicitly grants it to (see
+            // migration 2026_09_05_000001).
+            'sales.view_amounts',
+            // Force-closing ANOTHER cashier's shift is likewise a named-
+            // person capability, not something every store Manager
+            // should carry by default — a manager who force-closes a
+            // shift they didn't run can hide a real discrepancy. Off
+            // here; grant it per-role explicitly (Admin still has it
+            // via its own unrestricted "every permission" grant above).
+            'shifts.close_others',
         ];
         $this->upsertRole(
             'Manager',

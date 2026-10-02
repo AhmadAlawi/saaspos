@@ -35,6 +35,10 @@ class CompleteSaleRequest extends FormRequest
             'discount_value'           => ['nullable', 'numeric', 'gte:0'],
             'discount_reason'          => ['nullable', 'string', 'max:255'],
             'discount_reason_category' => ['nullable', 'string', 'max:32'],
+            // Loyalty points redeemed as a post-tax cash reduction —
+            // see CompleteSale's doc-comment for why this is separate
+            // from the discount fields above.
+            'points_redeemed'          => ['nullable', 'integer', 'min:0'],
 
             'items'                     => ['required', 'array', 'min:1', 'max:200'],
             'items.*.product_id'        => ['required', 'integer', Rule::exists('products', 'id')->whereNull('deleted_at')],
@@ -81,6 +85,7 @@ class CompleteSaleRequest extends FormRequest
             'discount_value'           => $this->input('discount_value'),
             'discount_reason'          => $this->input('discount_reason'),
             'discount_reason_category' => $this->input('discount_reason_category'),
+            'points_redeemed'          => $this->input('points_redeemed'),
         ];
     }
 

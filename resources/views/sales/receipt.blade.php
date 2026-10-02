@@ -7,6 +7,16 @@
     // the QR when `receipt_show_qr` is on. Null when the caller didn't mint
     // a link (e.g. QR toggle off), so the QR block simply doesn't render.
     $receiptUrl = $receiptUrl ?? null;
+    // `$walletPassUrl` — set only by the public receipt viewer, only when
+    // this sale has a real customer attached and Apple Wallet is on.
+    // Null everywhere else (admin render, thermal print) — the link
+    // simply doesn't render.
+    $walletPassUrl = $walletPassUrl ?? null;
+    // `$googleWalletPassUrl` — same idea, Google Wallet side (PassFast only).
+    $googleWalletPassUrl = $googleWalletPassUrl ?? null;
+    // `$loyaltyCardUrl` — the barcode-only printable/on-screen card,
+    // available whenever loyalty is on (Apple Wallet or not).
+    $loyaltyCardUrl = $loyaltyCardUrl ?? null;
     // `$template` — a resolved ReceiptTemplate, or null on every install
     // until an admin creates and assigns one (see ResolveReceiptTemplate).
     // Null means: render the original hardcoded markup below, unchanged.
@@ -244,6 +254,18 @@
             <div class="rcpt-qr">
                 <x-receipt-qr :url="$receiptUrl" />
                 <div class="rcpt-qr-caption">{{ __('sales.receipt.qr_caption') }}</div>
+            </div>
+        @endif
+
+        @if ($loyaltyCardUrl)
+            <div class="rcpt-qr">
+                <a href="{{ $loyaltyCardUrl }}" class="link">{{ __('loyalty.card.link') }}</a>
+            </div>
+        @endif
+
+        @if ($walletPassUrl || $googleWalletPassUrl)
+            <div class="rcpt-qr">
+                <x-wallet-buttons :apple-url="$walletPassUrl" :google-url="$googleWalletPassUrl" />
             </div>
         @endif
 

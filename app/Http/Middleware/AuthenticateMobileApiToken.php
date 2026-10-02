@@ -39,6 +39,11 @@ class AuthenticateMobileApiToken
 
         $request->attributes->set('mobile_api_user', $user);
         $request->attributes->set('mobile_api_store_id', $token->store_id);
+        // The token row itself — needed by AuthController::switchStore()
+        // to update WHICH store this same bearer token is pinned to,
+        // without re-issuing (and thus invalidating) the plaintext value
+        // the app already has stored.
+        $request->attributes->set('mobile_api_token', $token);
         $request->setUserResolver(fn () => $user);
 
         return $next($request);

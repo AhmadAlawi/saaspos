@@ -270,9 +270,32 @@ class CustomerController extends Controller
             ->limit(50)
             ->get(['id', 'number', 'sale_date', 'currency_code', 'grand_total', 'paid_total', 'balance_due', 'status']);
 
+        // Lazy — only ever mint a wallet token for a customer someone's
+        // actually looking at, not the whole table, and only once the
+        // program is switched on. One token serves both surfaces: the
+        // real Apple Wallet pass (once a certificate is configured) and
+        // the barcode-only printable card that works without one.
+        $walletPassUrl = null;
+        $googleWalletPassUrl = null;
+        $loyaltyCardUrl = null;
+        $company = \App\Models\Company::current();
+        if ($company?->loyalty_enabled) {
+            $token = app(\App\Actions\Customers\EnsureWalletPassToken::class)->handle($customer);
+            $loyaltyCardUrl = route('loyalty.card', ['token' => $token]);
+            if ($company->apple_wallet_enabled) {
+                $walletPassUrl = route('wallet.pass', ['token' => $token]);
+            }
+            if (\App\Services\Wallet\PassFastClient::isConfigured($company)) {
+                $googleWalletPassUrl = route('wallet.pass.google', ['token' => $token]);
+            }
+        }
+
         return view('admin.customers.show', [
-            'customer'  => $customer,
-            'openSales' => $openSales,
+            'customer'            => $customer,
+            'openSales'           => $openSales,
+            'walletPassUrl'       => $walletPassUrl,
+            'googleWalletPassUrl' => $googleWalletPassUrl,
+            'loyaltyCardUrl'      => $loyaltyCardUrl,
         ]);
     }
 

@@ -145,6 +145,13 @@
                                x-model="search"
                                placeholder="{{ __('products.list.search_placeholder') }}"
                                class="pos-input">
+                        {{-- Find-to-edit by camera — useful walking the floor
+                             with no USB scanner handy. Scans into the same
+                             search box, which already matches barcodes
+                             (primary + linked). --}}
+                        <button type="button" class="inv-search-camera-btn" @click="openCamera()" aria-label="{{ __('products.list.scan_camera') }}" title="{{ __('products.list.scan_camera') }}">
+                            <x-icon name="camera" class="w-4 h-4" />
+                        </button>
                     </div>
                 </label>
 
@@ -306,5 +313,36 @@
                 <div x-ref="gridSentinel" class="prod-grid-sentinel" aria-hidden="true"></div>
             </div>
         @endif
+
+        {{-- ── Camera scanner modal (ZXing) — find-to-edit by barcode ── --}}
+        <div class="scrim overlay-host"
+             x-show="cameraOpen" x-cloak
+             @click.self="closeCamera()"
+             @keydown.escape.window="if (cameraOpen) closeCamera()">
+            <div class="modal-card cashier-camera-card" role="dialog" aria-modal="true">
+                <div class="modal-body">
+                    <div class="cashier-customer-head">
+                        <div class="cashier-variant-title">
+                            <div class="text-base font-semibold">{{ __('products.list.scan_camera') }}</div>
+                            <div class="cashier-variant-sub">{{ __('products.list.scan_camera_sub') }}</div>
+                        </div>
+                        <button type="button" class="cashier-icon-btn" @click="closeCamera()" aria-label="{{ __('products.actions.cancel') }}">
+                            <x-icon name="x" class="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div class="cashier-camera-stage">
+                        <video x-ref="productsCameraVideo" class="cashier-camera-video" muted autoplay playsinline></video>
+                    </div>
+
+                    <p class="cashier-camera-error" x-show="cameraError" x-cloak x-text="cameraError"></p>
+                </div>
+                <div class="modal-foot">
+                    <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost" @click="closeCamera()">
+                        {{ __('products.actions.cancel') }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </x-admin-layout>

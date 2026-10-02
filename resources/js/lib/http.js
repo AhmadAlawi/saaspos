@@ -13,6 +13,10 @@
  *   - 422 → unwrap Laravel's validation error envelope into
  *     `{field: [msg, …]}` and attach it to a uniform error shape
  *   - 5xx → push a generic toast so the user is never silent-failed
+ *   - network error/timeout on a GET → one silent auto-retry after
+ *     800ms (absorbs a single dropped packet on a flaky link without
+ *     the caller noticing); never retried for POST/PATCH/PUT/DELETE
+ *     since those aren't guaranteed idempotent server-side
  *
  * Public surface:
  *   posGet(url, params?, opts?)   → Promise<{data, status}>
@@ -67,6 +71,24 @@ http.interceptors.response.use(
     (response) => response,
     (error) => {
         const status   = error.response?.status ?? 0;
+        const config   = error.config || {};
+
+        // A slow/flaky link (not a genuine timeout of a stuck server —
+        // `status === 0` covers both a dropped connection AND our own
+        // client-side timeout tripping) drops the occasional request
+        // outright rather than returning an error status. One silent
+        // auto-retry after a short pause absorbs that without the
+        // caller ever seeing it — but ONLY for GET: a POST/PATCH/etc.
+        // may not be idempotent server-side, so retrying those blindly
+        // here would risk double-submitting whatever the caller sent.
+        // Callers that need retry-safety for a non-GET (checkout) build
+        // their own idempotent fallback (see cashier-page.js's
+        // complete()) instead of relying on this.
+        if (status === 0 && !config.__retried && (config.method || 'get').toLowerCase() === 'get') {
+            config.__retried = true;
+            return new Promise((resolve) => setTimeout(resolve, 800)).then(() => http.request(config));
+        }
+
         const data     = error.response?.data   ?? {};
         const message  = data.message
             ?? (status === 0 ? 'Network error — check your connection.' : `Request failed (${status}).`);

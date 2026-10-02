@@ -144,10 +144,23 @@ return [
         'customer' => 'Customer',
         'check_price' => 'Check price',
         'held' => 'Held sales',
+        'open_drawer' => 'Open drawer',
         'catalog_expand' => 'Show catalog',
         'catalog_collapse' => 'Hide catalog',
         'cart_expand' => 'Show cart',
         'cart_collapse' => 'Hide cart',
+    ],
+
+    'drawer_pin' => [
+        'title'   => 'Open drawer',
+        'sub'     => 'Enter your PIN to open the drawer. Logged against your name.',
+        'opening' => 'Opening…',
+    ],
+
+    'scan_not_found' => [
+        'title' => 'Product not found',
+        'sub'   => 'No product matches ":query". Scanning is paused — press OK before scanning the next item.',
+        'ok'    => 'OK',
     ],
 
     'price_check' => [
@@ -520,6 +533,12 @@ return [
         'refund_open_failed'          => 'Couldn\'t open this sale for refund.',
         'refund_failed'               => 'Refund failed.',
         'refund_approved'             => 'Refund approved.',
+        'member_lookup_offline'       => 'Member lookup needs an internet connection.',
+        'member_not_found'            => 'No customer found for that card.',
+        'member_lookup_failed'        => 'Couldn\'t look up that card.',
+        'member_attached'             => ':name attached.',
+        'points_balance'              => ':n points available',
+        'points_redeemed'             => 'Points redeemed',
         'stock_exceeds_named'         => '":name" exceeds available stock — reduce qty to continue.',
         'stock_exceeds_generic'       => 'Some items exceed available stock — reduce qty to continue.',
         'qr_payment_needs_internet'   => 'QR payment needs an internet connection. Take cash, or retry when you\'re back online.',

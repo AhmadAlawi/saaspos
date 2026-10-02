@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\Concerns\HasPermissions;
 use App\Models\Concerns\MasksDemoEmail;
@@ -20,6 +22,8 @@ use Illuminate\Support\Facades\Storage;
 #[Hidden(['password', 'pin', 'remember_token'])]
 class User extends Authenticatable
 {
+    use Auditable;
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, HasPermissions, MasksDemoEmail, Notifiable, SoftDeletes;
 

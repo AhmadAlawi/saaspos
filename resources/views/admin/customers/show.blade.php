@@ -91,6 +91,14 @@
                 <div class="card-body">
                     <div class="cust-kpi-label">{{ __('customers.kpis.loyalty') }}</div>
                     <div class="cust-kpi-value">{{ number_format($customer->loyalty_points) }}</div>
+                    @if ($loyaltyCardUrl)
+                        <a href="{{ $loyaltyCardUrl }}" class="link text-sm" target="_blank" rel="noopener">
+                            {{ __('loyalty.card.link') }}
+                        </a>
+                    @endif
+                    @if ($walletPassUrl || $googleWalletPassUrl)
+                        <x-wallet-buttons :apple-url="$walletPassUrl" :google-url="$googleWalletPassUrl" />
+                    @endif
                 </div>
             </div>
         </div>

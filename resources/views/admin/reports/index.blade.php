@@ -123,6 +123,22 @@
                 </div>
             </a>
 
+            {{-- Activity Log --}}
+            <a href="{{ route('admin.reports.activity-log.index') }}"
+               class="card card-hover block p-5 group">
+                <div class="flex items-start gap-3">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                        <x-icon name="clock" class="w-5 h-5 text-accent" />
+                    </div>
+                    <div>
+                        <div class="font-semibold group-hover:text-accent transition-colors">
+                            Activity Log
+                        </div>
+                        <p class="text-sm fg-tertiary mt-0.5">Every cashier-screen action, by type — cart, discount, drawer, shift, print, sale, refund, auth, error.</p>
+                    </div>
+                </div>
+            </a>
+
             {{-- Aged Receivables --}}
             <a href="{{ route('admin.reports.aged-receivables.index') }}"
                class="card card-hover block p-5 group">

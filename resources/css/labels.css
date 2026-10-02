@@ -103,6 +103,20 @@ html, body {
   line-height: 1.15;
 }
 
+/* A resized barcode graphic should fill its container box instead of
+   staying at its generated size. The SVG's own preserveAspectRatio (its
+   library default) still keeps bars undistorted within that box — a
+   stretched barcode can become unscannable, so this deliberately doesn't
+   defeat that. Scoped to this class only: applying it to every
+   `.label-el svg` would also hit the untouched legacy/`scale` barcodes,
+   which have no explicit container size to fill and would blow up to the
+   full label width instead of their small natural size. */
+.label-barcode-graphic svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 @media print {
   html, body { background: #fff; }
   .label-toolbar { display: none; }

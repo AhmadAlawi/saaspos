@@ -63,6 +63,7 @@
             data-update-url-template="{{ route('admin.receipt-templates.elements.update', [$template, '__ID__']) }}"
             data-destroy-url-template="{{ route('admin.receipt-templates.elements.destroy', [$template, '__ID__']) }}"
             data-preview-url="{{ route('admin.receipt-templates.canvas.preview', $template) }}"
+            data-test-print-url="{{ route('admin.receipt-templates.test-print', $template) }}"
             data-elements="{{ json_encode($elements->map(fn ($e) => [
                 'id' => $e->id, 'type' => $e->type, 'x' => (float) $e->x, 'y' => (float) $e->y,
                 'width' => $e->width !== null ? (float) $e->width : null,
@@ -117,6 +118,10 @@
                                 style="width:100%; height:50vh; border:0;" title="{{ __('receipt_templates.canvas.preview') }}"></iframe>
                     </div>
                 </div>
+                <button type="button" id="rtpl-test-print-btn" class="pos-btn pos-btn-sm pos-btn-ghost mt-2" style="width:100%;">
+                    {{ __('receipt_templates.actions.test_print') }}
+                </button>
+                <div id="rtpl-test-print-status" class="text-xs text-muted mt-1"></div>
             </div>
         </div>
     </div>

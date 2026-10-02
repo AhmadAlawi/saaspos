@@ -104,6 +104,10 @@ return [
         'amount'         => 'Amount',
         'actions'        => 'Actions',
         'change_method'  => 'Change method',
+        'split_method'   => 'Split',
+        'split_hint'     => 'Split this :total payment across two or more methods — the amounts must add up to :total.',
+        'add_split'      => 'Add another method',
+        'remove_split'   => 'Remove',
         'save'           => 'Save',
         'cancel'         => 'Cancel',
         'reason'         => 'Reason for the change',
@@ -155,6 +159,7 @@ return [
         'payment_recorded'       => 'Payment recorded.',
         'voided'                 => 'Sale :number voided. Stock returned to inventory.',
         'payment_method_changed' => 'Payment method updated.',
+        'payment_split'          => 'Payment split across methods.',
     ],
 
     'receipt' => [
@@ -180,6 +185,7 @@ return [
         'tendered'             => 'Tendered',
         'change'               => 'Change',
         'qr_caption'           => 'Scan to view',
+        'wallet_link'          => 'Add loyalty card to Apple Wallet',
         'provisional_note'     => 'Provisional receipt — the final number is assigned when this sale syncs online.',
     ],
 
@@ -192,6 +198,7 @@ return [
     'errors' => [
         'insufficient_stock' => 'Insufficient stock for ":name". Available: :available, requested: :requested.',
         'expired_batch_sale' => 'Cannot sell expired batch ":batch" of ":name" (expired :expiry). A manager with the override permission is required.',
+        'insufficient_loyalty_points' => ':name only has :available points — can\'t redeem :requested.',
         'discount_not_allowed'   => 'You don\'t have permission to apply discounts.',
         'discount_above_threshold' => 'This discount (:percent%) is above the :threshold% limit and needs a manager.',
         'discount_approval'      => [
@@ -229,9 +236,12 @@ return [
             'shift_closed'               => 'The shift this sale belongs to is closed. Voiding it would falsify the Z-report — process a refund instead.',
         ],
         'payment_not_editable' => [
-            'sale_voided'      => 'This sale is voided — its payments can no longer be edited.',
-            'method_inactive'  => 'That payment method is not active.',
-            'method_unchanged' => 'That is already this payment\'s method.',
+            'sale_voided'            => 'This sale is voided — its payments can no longer be edited.',
+            'method_inactive'        => 'That payment method is not active.',
+            'method_unchanged'       => 'That is already this payment\'s method.',
+            'split_count'            => 'Split into at least two payment methods.',
+            'split_amount_zero'      => 'Every split amount must be greater than zero.',
+            'split_amount_mismatch'  => 'The split amounts must add up to the original payment total.',
         ],
     ],
 

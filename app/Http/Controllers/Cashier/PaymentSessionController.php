@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Cashier;
 
+use App\Actions\Sales\AuthorizeDiscount;
 use App\Actions\Sales\PriceCart;
+use App\Exceptions\DiscountAboveThreshold;
+use App\Exceptions\DiscountNotAllowed;
 use App\Http\Controllers\Controller;
 use App\Models\PaymentMethod;
 use App\Models\PosPaymentSession;
@@ -28,7 +31,7 @@ use Illuminate\Support\Str;
  */
 class PaymentSessionController extends Controller
 {
-    public function create(Request $request): JsonResponse
+    public function create(Request $request, AuthorizeDiscount $authorizeDiscount): JsonResponse
     {
         $this->authorize('create', Sale::class);
 
@@ -36,6 +39,12 @@ class PaymentSessionController extends Controller
             'amount'     => ['required', 'string'],
             'currency'   => ['required', 'string', 'size:3'],
             'local_uuid' => ['required', 'string', 'max:64'],
+            // Same discount-governance inputs `complete()` sends — see
+            // AuthorizeDiscount below. Without these this endpoint has no
+            // way to tell an approved discount from a rejected one, and
+            // will charge the discounted amount either way.
+            'customer_id'       => ['sometimes', 'nullable', 'integer'],
+            'discount_approval' => ['sometimes', 'nullable', 'string'],
             // Cart snapshot so the customer's pay page can show the full
             // breakdown. Customer-facing only — names + numbers, no
             // internal IDs. Capped so a runaway cart can't bloat the row;
@@ -93,6 +102,28 @@ class PaymentSessionController extends Controller
         if (! empty($data['items'])) {
             $priced = $this->priceLines($data['items'], (int) $storeId);
             if ($priced !== null) {
+                // Discount governance — the SAME check CompleteSale runs
+                // (see AuthorizeDiscount's doc-comment). Must happen here,
+                // before we ever hand a discounted amount to a payment
+                // gateway/card terminal: rejecting the discount silently
+                // and charging full price anyway would just move the
+                // mismatch from "card charged more than recorded" to
+                // "cashier didn't know the discount was dropped until the
+                // customer disputes the receipt" — reject the whole
+                // request instead, so the cashier fixes the discount
+                // BEFORE anything gets charged.
+                $store = Store::query()->find($storeId);
+                try {
+                    $authorizeDiscount->handle(
+                        $priced,
+                        $store,
+                        isset($data['customer_id']) ? (int) $data['customer_id'] : null,
+                        $data['discount_approval'] ?? null,
+                    );
+                } catch (DiscountNotAllowed|DiscountAboveThreshold $e) {
+                    return response()->json(['message' => $e->getMessage()], 422);
+                }
+
                 $paidAlready = (string) ($data['paid_already'] ?? '0');
                 $remaining   = bcsub($priced->grandTotal, $paidAlready, 4);
                 // Never charge below zero (over-tendered before the QR).

@@ -23,6 +23,51 @@
                 <p class="page-sub">{{ __('shifts.sub') }}</p>
             </div>
             <div class="flex items-center gap-2">
+                {{-- One-click combined report — every terminal's day
+                     described, then a grand total. Works any day,
+                     open or already closed, so it's not gated on
+                     $openTradingDays being non-empty like the card
+                     below (see PrepareAllTerminalsDayReportPayload). --}}
+                @if ($canCloseDay)
+                    <button type="button"
+                            x-data="printButton({
+                                payloadUrl:     '{{ route('admin.shifts.all-terminals.report-payload') }}',
+                                logUrl:         '{{ route('admin.print-logs.store') }}',
+                                referenceType:  'TradingDay',
+                                referenceLabel: @js(__('shifts.day.print_all.title')),
+                            })"
+                            @click="print()"
+                            :disabled="printing"
+                            class="pos-btn pos-btn-sm pos-btn-ghost">
+                        <svg x-show="printing" x-cloak class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        </svg>
+                        <template x-if="!printing"><x-icon name="receipt" class="w-4 h-4" /></template>
+                        {{ __('shifts.day.print_all.title') }}
+                    </button>
+                    {{-- Compact bottom-line slip (sales/cards/cash/short/
+                         over/offer/refund/expenses) — same data source as
+                         the button above, just condensed to one screen's
+                         worth instead of a per-terminal breakdown. --}}
+                    <button type="button"
+                            x-data="printButton({
+                                payloadUrl:     '{{ route('admin.shifts.day-total.report-payload') }}',
+                                logUrl:         '{{ route('admin.print-logs.store') }}',
+                                referenceType:  'TradingDay',
+                                referenceLabel: @js(__('shifts.day.print_day_total.title')),
+                            })"
+                            @click="print()"
+                            :disabled="printing"
+                            class="pos-btn pos-btn-sm pos-btn-ghost">
+                        <svg x-show="printing" x-cloak class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+                        </svg>
+                        <template x-if="!printing"><x-icon name="receipt" class="w-4 h-4" /></template>
+                        {{ __('shifts.day.print_day_total.title') }}
+                    </button>
+                @endif
                 @if ($activeShift)
                     <a href="{{ route('admin.shifts.show', $activeShift) }}" class="pos-btn pos-btn-sm pos-btn-primary">
                         <x-icon name="receipt" class="w-4 h-4" />

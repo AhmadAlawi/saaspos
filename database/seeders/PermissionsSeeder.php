@@ -48,6 +48,7 @@ class PermissionsSeeder extends Seeder
             ['key' => 'sales.held.resume_others',        'group' => 'Sales',       'label' => 'Resume sales parked by others'],
             ['key' => 'sales.print_receipt',             'group' => 'Sales',       'label' => 'Print or share receipts'],
             ['key' => 'sales.cross_store_view',          'group' => 'Sales',       'label' => 'View sales across all stores'],
+            ['key' => 'sales.view_amounts',               'group' => 'Sales',       'label' => 'View sale, shift, and daily-total money figures'],
 
             // §7.2 Returns
             ['key' => 'returns.create',                  'group' => 'Returns',     'label' => 'Process a return'],
@@ -180,6 +181,7 @@ class PermissionsSeeder extends Seeder
             ['key' => 'terminals.configure',             'group' => 'Hardware',    'label' => 'Create, edit, and configure terminals + hardware'],
             ['key' => 'hardware.diagnostics',            'group' => 'Hardware',    'label' => 'View and run the hardware diagnostics page'],
             ['key' => 'hardware.test_print',             'group' => 'Hardware',    'label' => 'Trigger test prints'],
+            ['key' => 'cameras.view',                    'group' => 'Hardware',    'label' => 'View live camera feeds'],
         ];
     }
 }

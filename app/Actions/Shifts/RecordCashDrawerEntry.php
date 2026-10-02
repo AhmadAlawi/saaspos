@@ -23,6 +23,14 @@ use InvalidArgumentException;
  *                              counts on the Z-report under "Drawer
  *                              opens (no sale)" but doesn't move money.
  *
+ * `drawer_open_no_sale` is the ONE type that may be recorded with
+ * `$shift = null` — a manager popping the drawer before any cashier has
+ * clocked in on this terminal. A shift-less entry (`shift_id` NULL)
+ * never shows up in any Z-report (ComputeShiftTotals always filters by
+ * a real shift_id); it's audit-only, visible in the cashier activity
+ * log. `pay_in`/`pay_out` always require a real open shift — those move
+ * money and MUST reconcile against a specific shift's expected cash.
+ *
  * Hooks:
  *   - action `cash_drawer.pay_in_recorded`     → ($entry, $shift)
  *   - action `cash_drawer.pay_out_recorded`    → ($entry, $shift)
@@ -38,13 +46,20 @@ class RecordCashDrawerEntry
      *   expense_id?: ?int,                   // pay_out optional link
      * }
      */
-    public function __invoke(Shift $shift, array $data, User $user): CashDrawerEntry
+    public function __invoke(?Shift $shift, array $data, User $user): CashDrawerEntry
     {
-        if (! $shift->isOpen()) {
+        $type = (string) ($data['type'] ?? '');
+
+        if (! $shift) {
+            if ($type !== CashDrawerEntry::TYPE_DRAWER_OPEN_NO_SALE) {
+                // pay_in/pay_out move real money — always needs a shift
+                // to reconcile against. Only a bare drawer-open may be
+                // shift-less.
+                throw new InvalidArgumentException('A shift is required for '.$type.'.');
+            }
+        } elseif (! $shift->isOpen()) {
             throw new ShiftNotOpen($shift);
         }
-
-        $type = (string) ($data['type'] ?? '');
         if (! in_array($type, [
             CashDrawerEntry::TYPE_PAY_IN,
             CashDrawerEntry::TYPE_PAY_OUT,
@@ -65,7 +80,7 @@ class RecordCashDrawerEntry
 
         return DB::transaction(function () use ($shift, $type, $amount, $data, $user) {
             $entry = CashDrawerEntry::create([
-                'shift_id'              => (int) $shift->id,
+                'shift_id'              => $shift?->id,
                 'type'                  => $type,
                 'amount'                => $amount,
                 'reason'                => (string) ($data['reason'] ?? ''),

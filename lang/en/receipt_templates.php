@@ -39,6 +39,8 @@ return [
         'save'           => 'Save',
         'cancel'         => 'Cancel',
         'set_default'    => 'Set as default',
+        'duplicate'      => 'Duplicate',
+        'test_print'     => 'Test print',
         'confirm_delete' => 'Delete this receipt template? Any store or terminal assigned to it falls back to the default.',
     ],
 
@@ -47,6 +49,7 @@ return [
         'updated'       => 'Receipt template ":name" updated.',
         'deleted'       => 'Receipt template ":name" deleted.',
         'default_set'   => '":name" is now the default receipt template.',
+        'duplicated'    => 'Duplicated as ":name" — inactive, edit and test freely.',
         'block_added'   => 'Block added.',
         'block_updated' => 'Block updated.',
         'block_removed' => 'Block removed.',

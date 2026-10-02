@@ -1,5 +1,8 @@
 /vendor
 /node_modules
+# Reference copy of the pre-SaaS upstream product, merged from on 2026-10-02.
+# Not a submodule, no .git of its own worth tracking here.
+/POSUpdate
 /public/hot
 /public/storage
 /public/build

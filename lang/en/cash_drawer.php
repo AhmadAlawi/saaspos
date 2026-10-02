@@ -56,5 +56,11 @@ return [
 
     'errors' => [
         'amount_must_be_positive' => 'Amount must be greater than zero.',
+        'pin_invalid'             => 'Incorrect PIN.',
+        'no_open_shift'           => 'No open shift found for this terminal.',
+    ],
+
+    'reasons' => [
+        'focus_pin_open' => 'Opened via focus-mode PIN by :name',
     ],
 ];

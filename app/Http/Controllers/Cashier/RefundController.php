@@ -186,6 +186,10 @@ class RefundController extends Controller
                     'number'       => $refund->number,
                     'grand_total'  => (string) $refund->grand_total,
                     'sale_number'  => $sale->number,
+                    // Drives printCorrectedSaleCopy() in cashier-page.js —
+                    // without it the second, remaining-items invoice never
+                    // prints even though the payload it needs already exists.
+                    'sale_id'      => $sale->id,
                 ],
             ],
         );
@@ -219,12 +223,23 @@ class RefundController extends Controller
      * need to match {@see RecordSaleReturn}'s tax-prorated total to the
      * cent; it just has to be a faithful ceiling a manager actually saw.
      *
+     * MUST net out the line's own `discount_amount` (pro-rated per unit)
+     * — a plain `unit_price × quantity` ignores any discount that was on
+     * the line at sale time, so it overstates the true refund amount for
+     * any originally-discounted item. That inflated estimate then came
+     * out HIGHER than what the manager actually approved on screen
+     * (which nets the discount out, same as the client's own total), so
+     * a perfectly valid, just-approved token got rejected here — the
+     * confirmed cause of refunds on discounted items intermittently
+     * failing with "a manager needs to approve this refund" even right
+     * after approving it.
+     *
      * @param array<int, array{sale_item_id:int, quantity:string}> $items
      */
     private function estimateRefundTotal(Sale $sale, array $items): string
     {
         $ids  = array_column($items, 'sale_item_id');
-        $rows = $sale->items()->whereIn('id', $ids)->get(['id', 'unit_price'])->keyBy('id');
+        $rows = $sale->items()->whereIn('id', $ids)->get(['id', 'unit_price', 'quantity', 'discount_amount'])->keyBy('id');
 
         $total = '0';
         foreach ($items as $item) {
@@ -232,7 +247,12 @@ class RefundController extends Controller
             if (! $row) {
                 continue;
             }
-            $total = bcadd($total, bcmul((string) $row->unit_price, (string) $item['quantity'], 4), 4);
+            $origQty = (string) $row->quantity;
+            $gross   = bcmul((string) $row->unit_price, $origQty, 8);
+            $netUnit = bccomp($origQty, '0', 8) > 0
+                ? bcdiv(bcsub($gross, (string) ($row->discount_amount ?? '0'), 8), $origQty, 8)
+                : (string) $row->unit_price;
+            $total = bcadd($total, bcmul($netUnit, (string) $item['quantity'], 8), 4);
         }
 
         return $total;

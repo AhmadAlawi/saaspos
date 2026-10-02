@@ -6,6 +6,15 @@
         $cfdChannel   = 'pos-cfd:'.(current_terminal_id() ?: 'default');
         $cfdEnabled   = current_terminal()?->cfdEnabled() ?? false;
         $cfdTransport = current_terminal()?->cfdTransport() ?? 'same_machine';
+        // Money `<input step>` at the currency's OWN precision — JOD is
+        // 3dp (fils), so a hardcoded step="0.01" silently made the third
+        // digit untypable/unusable in every amount field on this page
+        // (split-tender amount, cash tendered, opening cash, amount-mode
+        // discounts). Built from the currency's real `decimals`, not
+        // assumed, so a 2dp currency isn't affected.
+        $moneyStep = app_currency()['decimals'] > 0
+            ? '0.'.str_pad('1', app_currency()['decimals'], '0', STR_PAD_LEFT)
+            : '1';
     @endphp
     {{-- Settings-driven layout / sizing. The tile-density class stays
          server-rendered (tile size is an admin-set default, not a live
@@ -41,14 +50,17 @@
              refundPrintPayloadUrlTemplate: '{{ route('admin.sales.returns.print-payload', ['saleReturn' => '__ID__']) }}',
              correctedCopyPrintPayloadUrlTemplate: '{{ route('admin.sales.corrected-copy-print-payload', ['sale' => '__ID__']) }}',
              printLogUrl:              '{{ route('admin.print-logs.store') }}',
+             activityLogUrl:           '{{ route('cashier.activity-log.store') }}',
              reprintLastUrl:           '{{ route('cashier.reprint-last') }}',
              recentsListUrl:           '{{ route('cashier.recents') }}',
              drawerNoSaleUrl:          {{ !empty($activeShiftId) ? Js::from(route('admin.shifts.cash-drawer.record', $activeShiftId)) : 'null' }},
+             drawerPinUrl:             '{{ route('cashier.drawer.pin') }}',
              refundLookupUrl:          '{{ route('cashier.refund.lookup') }}',
              refundShowUrlTemplate:    '{{ route('cashier.refund.show',  ['sale' => '__ID__']) }}',
              refundStoreUrlTemplate:   '{{ route('cashier.refund.store', ['sale' => '__ID__']) }}',
              refundStoreBlindUrl:      '{{ route('cashier.refund.store-blind') }}',
              refundApprovalUrl:        '{{ route('cashier.refund.approve') }}',
+             pinChangeUrl:             '{{ route('cashier.pin.change') }}',
              gatewayStartUrl:          '{{ route('cashier.gateways.start') }}',
              gatewayStatusUrl:         '{{ route('cashier.gateways.status') }}',
              posSessionCreateUrl:      '{{ route('cashier.pos-sessions.create') }}',
@@ -72,7 +84,9 @@
              {{-- Customer-Facing Display (CFD) — same-machine channel +
                   the second-screen URL. See docs/features/customer-display.md. --}}
              cfdChannel:               {{ Js::from($cfdChannel) }},
-             displayUrl:               '{{ route('cashier.display') }}',
+             {{-- Explicit ?terminal= so the display page can identify itself
+                  without a session — see CustomerDisplayController. --}}
+             displayUrl:               '{{ route('cashier.display', ['terminal' => current_terminal_id() ?: 0]) }}',
              cfdTransport:             {{ Js::from($cfdTransport) }},
              cfdPushUrl:               '{{ route('cashier.display.push') }}',
          })"
@@ -99,6 +113,7 @@
                        x-model="searchQuery"
                        @keydown.enter.prevent="onSearchEnter()"
                        @keydown.escape="searchQuery = ''"
+                       :disabled="scanNotFoundOpen"
                        autocomplete="off"
                        spellcheck="false"
                        placeholder="{{ __('cashier.search.placeholder') }}">
@@ -120,6 +135,7 @@
                        x-model="scanQuery"
                        @keydown.enter.prevent="onScanEnter()"
                        @keydown.escape="scanQuery = ''"
+                       :disabled="scanNotFoundOpen"
                        autocomplete="off"
                        spellcheck="false"
                        placeholder="{{ __('cashier.scan.placeholder') }}">
@@ -388,6 +404,13 @@
                         <x-icon name="key" class="w-4 h-4" />
                         <span>{{ __('cashier.overflow.shortcut_help') }}</span>
                     </button>
+                    {{-- Self-service PIN change — every user, no permission
+                         gate (see ChangePinController). --}}
+                    <button type="button" class="cashier-overflow-item"
+                            @click="openChangePin(); closeOverflow();">
+                        <x-icon name="lock" class="w-4 h-4" />
+                        <span>{{ __('account.pin.title') }}</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -444,6 +467,10 @@
                 <button type="button" class="cashier-rail-btn" @click="openHeldDrawer()">
                     <x-icon name="archive" class="w-5 h-5" />
                     <span>{{ __('cashier.action_rail.held') }}</span>
+                </button>
+                <button type="button" class="cashier-rail-btn" @click="openDrawerPin()">
+                    <x-icon name="cash" class="w-5 h-5" />
+                    <span>{{ __('cashier.action_rail.open_drawer') }}</span>
                 </button>
             </aside>
 
@@ -770,6 +797,26 @@
                     </button>
                 </div>
 
+                {{-- Redeem loyalty points — a post-tax cash reduction, kept
+                     visually separate from the "Discount" row below since
+                     it isn't one (see CompleteSale's doc-comment). Only
+                     shown once a customer with a real balance is attached
+                     and the program is switched on. --}}
+                <div class="cashier-loyalty-redeem"
+                     x-show="settings.loyalty_enabled && customer && (customer.loyalty_points || 0) > 0"
+                     x-cloak>
+                    <span class="text-sm fg-tertiary"
+                          x-text="(labels.points_balance || ':n points available').replace(':n', customer?.loyalty_points ?? 0)"></span>
+                    <div class="flex items-center gap-2">
+                        <input type="number" min="0" :max="maxRedeemablePoints" step="1"
+                               class="pos-input pos-input-sm" style="width:90px"
+                               x-model.number="pointsToRedeem"
+                               @change="pointsToRedeem = Math.max(0, Math.min(maxRedeemablePoints, Number(pointsToRedeem) || 0))"
+                               placeholder="0">
+                        <span class="text-xs fg-tertiary" x-show="pointsToRedeem > 0" x-text="'−' + money(pointsRedeemedValue)"></span>
+                    </div>
+                </div>
+
                 <div class="cashier-cart-lines">
                     <template x-for="line in cart" :key="line.id">
                         {{-- Cart line — mirrors mockup Checkout.html
@@ -968,6 +1015,17 @@
                               x-show="discount.type" x-cloak
                               x-text="'−' + money(discountAmt)"></span>
                     </button>
+
+                    {{-- Points redeemed — separate row from the discount
+                         above; it's a post-tax reduction, not a discount
+                         (see CompleteSale's doc-comment). --}}
+                    <div class="cashier-totals-row" x-show="pointsToRedeem > 0" x-cloak>
+                        <span class="cashier-totals-meta">
+                            <x-icon name="tag" class="w-3.5 h-3.5" />
+                            <span x-text="(labels.points_redeemed || 'Points redeemed') + ' (' + pointsToRedeem + ')'"></span>
+                        </span>
+                        <span class="num tnum cashier-totals-neg" x-text="'−' + money(pointsRedeemedValue)"></span>
+                    </div>
 
                     {{-- One inline tax row. After the line-total refactor
                          the subtotal already carries every line's tax
@@ -1239,7 +1297,7 @@
                                            data-cashier-tendered
                                            x-model="payTendered"
                                            class="cashier-pay-cash-input num tnum"
-                                           step="0.01" min="0"
+                                           step="{{ $moneyStep }}" min="0"
                                            @keydown.enter.prevent="canComplete && complete()">
                                 </div>
                                 <div class="cashier-pay-quick">
@@ -1331,7 +1389,7 @@
                                         <input type="number"
                                                x-model="payTendered"
                                                class="cashier-pay-cash-input num tnum"
-                                               step="0.01" min="0">
+                                               step="{{ $moneyStep }}" min="0">
                                     </div>
                                 </label>
                                 <div class="cashier-pay-hint">{{ __('cashier.pay.ref_hint') }}</div>
@@ -1498,7 +1556,7 @@
                                         <input type="number"
                                                x-model="payTendered"
                                                class="cashier-pay-cash-input num tnum"
-                                               step="0.01" min="0">
+                                               step="{{ $moneyStep }}" min="0">
                                     </div>
                                 </label>
                                 <div class="cashier-pay-actions">
@@ -1974,7 +2032,7 @@
                                   x-text="_discountForm.kind === 'pct' ? '%' : @js(app_currency()['symbol'] ?? '$')"></span>
                             <input type="number"
                                    class="pos-input cashier-disc-input tnum"
-                                   step="0.01"
+                                   :step="_discountForm.kind === 'pct' ? '0.01' : @js($moneyStep)"
                                    min="0"
                                    :max="_discountForm.kind === 'pct' ? 100 : (subtotal || null)"
                                    x-model.number="_discountForm.val">
@@ -2060,7 +2118,8 @@
                         <div class="cashier-disc-input-wrap">
                             <span class="cashier-disc-input-prefix"
                                   x-text="_lineDiscForm.kind === 'pct' ? '%' : @js(app_currency()['symbol'] ?? '$')"></span>
-                            <input type="number" class="pos-input cashier-disc-input tnum" step="0.01" min="0"
+                            <input type="number" class="pos-input cashier-disc-input tnum"
+                                   :step="_lineDiscForm.kind === 'pct' ? '0.01' : @js($moneyStep)" min="0"
                                    :max="_lineDiscForm.kind === 'pct' ? 100 : null"
                                    x-model.number="_lineDiscForm.val">
                         </div>
@@ -2101,6 +2160,17 @@
                         </button>
                     </div>
 
+                    {{-- Which lines the manager is actually approving —
+                         so the PIN isn't typed blind against a bare %. --}}
+                    <div class="form-stack mt-2" x-show="discountedLines.length" x-cloak>
+                        <template x-for="dl in discountedLines" :key="dl.name">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="fg-secondary" x-text="dl.name + (dl.label ? ' (' + dl.label + ')' : '')"></span>
+                                <span class="num tnum" x-text="'−' + money(dl.amount)"></span>
+                            </div>
+                        </template>
+                    </div>
+
                     <div class="form-stack mt-3" style="align-items: center;">
                         <x-cashier.pin-pad form-path="approvalForm.pin" on-complete="submitApproval()" />
                         <p x-show="approvalSubmitting" x-cloak class="text-sm fg-tertiary mt-2">{{ __('cashier.discount_approval.approving') }}</p>
@@ -2112,6 +2182,51 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        {{-- ── Change my PIN modal — self-service, every user ──────
+             One pin-pad screen per step (current → new → confirm),
+             same UX as the discount/refund approval pads. --}}
+        <div class="scrim overlay-host"
+             x-show="changePinOpen" x-cloak
+             @click.self="closeChangePin()"
+             @keydown.escape.window="if (changePinOpen) closeChangePin()">
+            <div class="modal-card cashier-customer-add-card" role="dialog" aria-modal="true">
+                <div class="modal-body">
+                    <div class="cashier-customer-head">
+                        <div class="cashier-variant-title">
+                            <div class="text-base font-semibold">{{ __('account.pin.title') }}</div>
+                            <div class="text-sm fg-tertiary" x-text="
+                                changePinStep === 'current' ? @js(__('account.pin.current'))
+                                : changePinStep === 'new'    ? @js(__('account.pin.new'))
+                                : @js(__('account.pin.confirm'))
+                            "></div>
+                        </div>
+                        <button type="button" class="cashier-icon-btn" @click="closeChangePin()" aria-label="{{ __('cashier.pay.cancel') }}">
+                            <x-icon name="x" class="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div class="form-stack mt-3" style="align-items: center;">
+                        <template x-if="changePinStep === 'current'">
+                            <x-cashier.pin-pad form-path="changePinForm.current_pin" on-complete="advanceChangePin()" />
+                        </template>
+                        <template x-if="changePinStep === 'new'">
+                            <x-cashier.pin-pad form-path="changePinForm.pin" on-complete="advanceChangePin()" />
+                        </template>
+                        <template x-if="changePinStep === 'confirm'">
+                            <x-cashier.pin-pad form-path="changePinForm.pin_confirmation" on-complete="advanceChangePin()" />
+                        </template>
+                        <p x-show="changePinSubmitting" x-cloak class="text-sm fg-tertiary mt-2">{{ __('cashier.discount_approval.approving') }}</p>
+                    </div>
+
+                    <div class="modal-foot mt-4">
+                        <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost" @click="closeChangePin()" :disabled="changePinSubmitting">
+                            {{ __('cashier.pay.cancel') }}
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -2209,6 +2324,65 @@
             </div>
         </div>
 
+        {{-- ── Focus mode's PIN-gated "Open drawer" rail button — any
+             active team member's PIN opens the drawer; the server logs
+             whose PIN it was as the CashDrawerEntry's created_by. ── --}}
+        <div class="scrim overlay-host"
+             x-show="drawerPinOpen" x-cloak
+             @click.self="closeDrawerPin()"
+             @keydown.escape.window="if (drawerPinOpen) closeDrawerPin()">
+            <div class="modal-card cashier-customer-add-card" role="dialog" aria-modal="true">
+                <form class="modal-body" @submit.prevent="submitDrawerPin()">
+                    <div class="cashier-customer-head">
+                        <div class="cashier-variant-title">
+                            <div class="text-base font-semibold">{{ __('cashier.drawer_pin.title') }}</div>
+                            <div class="cashier-variant-sub">{{ __('cashier.drawer_pin.sub') }}</div>
+                        </div>
+                        <button type="button" class="cashier-icon-btn" @click="closeDrawerPin()" aria-label="{{ __('cashier.pay.cancel') }}">
+                            <x-icon name="x" class="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <div class="form-stack mt-3" style="align-items: center;">
+                        <x-cashier.pin-pad form-path="drawerPinForm.pin" on-complete="submitDrawerPin()" />
+                        <p x-show="drawerPinBusy" x-cloak class="text-sm fg-tertiary mt-2">{{ __('cashier.drawer_pin.opening') }}</p>
+                    </div>
+
+                    <div class="modal-foot mt-4">
+                        <button type="button" class="pos-btn pos-btn-sm pos-btn-ghost" @click="closeDrawerPin()" :disabled="drawerPinBusy">
+                            {{ __('cashier.pay.cancel') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- ── Scan/search "no product found" alert — blocks further
+             scans until acknowledged (see _scanNotFound() in
+             cashier-page.js). No backdrop-click-to-dismiss and no
+             Escape shortcut on purpose: only the OK button clears it,
+             so a cashier can't blow past it out of habit the same way
+             they missed the original toast. ── --}}
+        <div class="scrim overlay-host" x-show="scanNotFoundOpen" x-cloak>
+            <div class="modal-card cashier-customer-add-card" role="alertdialog" aria-modal="true">
+                <div class="modal-body">
+                    <div class="cashier-customer-head">
+                        <div class="cashier-variant-title">
+                            <div class="text-base font-semibold">{{ __('cashier.scan_not_found.title') }}</div>
+                            <div class="cashier-variant-sub" x-text="(@js(__('cashier.scan_not_found.sub')) || '').replace(':query', scanNotFoundQuery)"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-foot">
+                    <button type="button"
+                            class="pos-btn pos-btn-sm pos-btn-primary"
+                            @click="closeScanNotFound()">
+                        {{ __('cashier.scan_not_found.ok') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
         {{-- ── Held drawer ───────────────────────────────────────── --}}
         <div class="scrim overlay-host"
              x-show="heldDrawerOpen" x-cloak
@@ -2291,7 +2465,13 @@
                                     <div class="cashier-held-row-label mono" x-text="sale.number"></div>
                                     <div class="cashier-held-row-sub" x-text="_fmtRecentDate(sale.sale_datetime)"></div>
                                     <div class="cashier-held-row-stat">
-                                        <span class="num tnum" x-text="money(sale.grand_total)"></span>
+                                        {{-- `sales.view_amounts` gates past-sale amounts here — the
+                                             live cart/refund totals elsewhere on this screen are NOT
+                                             gated, since those are what this cashier must currently
+                                             collect from or hand back to the customer in front of
+                                             them, not a reporting figure. --}}
+                                        <span class="num tnum" x-show="settings.can_view_amounts" x-text="money(sale.grand_total)"></span>
+                                        <span class="fg-tertiary" x-show="!settings.can_view_amounts" x-cloak>•••</span>
                                         <template x-if="sale.customer">
                                             <span class="ms-2 fg-tertiary">· <span x-text="sale.customer"></span></span>
                                         </template>
@@ -3083,7 +3263,7 @@
                         <div class="field">
                             <label class="field-label" for="gate-opening-cash">{{ __('shifts.fields.opening_cash') }}</label>
                             <input id="gate-opening-cash"
-                                   type="number" step="0.01" min="0" inputmode="decimal"
+                                   type="number" step="{{ $moneyStep }}" min="0" inputmode="decimal"
                                    class="pos-input num tnum"
                                    x-model="openingCash"
                                    x-ref="openingCash"

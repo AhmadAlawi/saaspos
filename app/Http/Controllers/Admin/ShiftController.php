@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Cashier\RecordCashierActivity;
 use App\Actions\Hardware\PrepareZReportPayload;
 use App\Actions\Shifts\CloseShift;
 use App\Actions\Shifts\ComputeShiftTotals;
@@ -275,10 +276,13 @@ class ShiftController extends Controller
         ]);
     }
 
-    public function close(CloseShiftRequest $request, Shift $shift, CloseShift $close): JsonResponse|RedirectResponse
+    public function close(CloseShiftRequest $request, Shift $shift, CloseShift $close, RecordCashierActivity $record): JsonResponse|RedirectResponse
     {
         try {
             $shift = $close($shift, $request->validated(), $request->user());
+            try {
+                $record(['type' => 'shift', 'action' => 'shift.close', 'reference_type' => 'Shift', 'reference_id' => $shift->id, 'meta' => ['cash_variance' => (string) $shift->cash_variance]], $request);
+            } catch (\Throwable) { /* best-effort */ }
         } catch (VarianceReasonRequired $e) {
             return $this->jsonOrError($request, $e->getMessage());
         }
@@ -391,12 +395,53 @@ class ShiftController extends Controller
         return response()->json(($prepare)($tradingDay));
     }
 
+    /**
+     * One-click "all terminals" rollup for the current store — every
+     * terminal's trading day for the given (or today's) business date,
+     * described individually, then a grand total. Same permission tier
+     * as the single-terminal day report since it's the same class of
+     * combined financial report, just wider.
+     */
+    public function allTerminalsReportPayload(Request $request, \App\Actions\Hardware\PrepareAllTerminalsDayReportPayload $prepare): JsonResponse
+    {
+        $storeId = current_store_id() ?: default_store_id();
+        abort_unless($request->user()?->hasPermission('shifts.close_others', (int) $storeId), 403);
+
+        $store = Store::query()->findOrFail($storeId);
+        $date  = $request->filled('date')
+            ? \Illuminate\Support\Carbon::parse((string) $request->input('date'))
+            : now();
+
+        return response()->json(($prepare)($store, $date));
+    }
+
+    /**
+     * Compact "day total" slip — the 8 bottom-line figures across every
+     * terminal for the given (or today's) business date, as opposed to
+     * {@see allTerminalsReportPayload}'s full per-terminal breakdown.
+     * Same permission tier — it's the same class of combined financial
+     * report, just condensed.
+     */
+    public function dayTotalReportPayload(Request $request, \App\Actions\Hardware\PrepareDayTotalReportPayload $prepare): JsonResponse
+    {
+        $storeId = current_store_id() ?: default_store_id();
+        abort_unless($request->user()?->hasPermission('shifts.close_others', (int) $storeId), 403);
+
+        $store = Store::query()->findOrFail($storeId);
+        $date  = $request->filled('date')
+            ? \Illuminate\Support\Carbon::parse((string) $request->input('date'))
+            : now();
+
+        return response()->json(($prepare)($store, $date));
+    }
+
     /* ── Cash drawer entries ────────────────────────────────────── */
 
     public function recordCashDrawerEntry(
         RecordCashDrawerEntryRequest $request,
         Shift $shift,
         RecordCashDrawerEntry $record,
+        \App\Actions\Hardware\PrepareCashDrawerSlipPayload $prepareSlip,
     ): JsonResponse|RedirectResponse {
         try {
             $record($shift, $request->validated(), $request->user());
@@ -406,13 +451,24 @@ class ShiftController extends Controller
             return $this->jsonOrError($request, $e->getMessage());
         }
 
-        $msg = match ((string) $request->input('type')) {
+        $type = (string) $request->input('type');
+        $msg = match ($type) {
             CashDrawerEntry::TYPE_PAY_IN              => __('cash_drawer.flash.pay_in_recorded'),
             CashDrawerEntry::TYPE_PAY_OUT             => __('cash_drawer.flash.pay_out_recorded'),
             CashDrawerEntry::TYPE_DRAWER_OPEN_NO_SALE => __('cash_drawer.flash.drawer_opened_no_sale'),
             default                                   => __('cash_drawer.flash.recorded'),
         };
 
-        return $this->jsonOrRedirect($request, $msg, route('admin.shifts.show', $shift));
+        // Only the no-sale drawer-open needs a physical kick — pay-in/
+        // pay-out don't open the drawer at all, so there's nothing to
+        // print for them. Resolved server-side against the shift's own
+        // bound terminal, same as the sale receipt — not the page's
+        // client-side printer meta tag.
+        $extra = [];
+        if ($type === CashDrawerEntry::TYPE_DRAWER_OPEN_NO_SALE) {
+            $extra['print_payload'] = $prepareSlip($shift, $request->user()?->name ?? '', (string) $request->input('reason') ?: null);
+        }
+
+        return $this->jsonOrRedirect($request, $msg, route('admin.shifts.show', $shift), $extra);
     }
 }

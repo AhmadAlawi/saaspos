@@ -66,6 +66,10 @@
                                             <button type="submit" class="pos-btn pos-btn-sm pos-btn-ghost">{{ __('receipt_templates.actions.set_default') }}</button>
                                         </form>
                                     @endunless
+                                    <form method="POST" action="{{ route('admin.receipt-templates.duplicate', $tpl) }}" class="contents">
+                                        @csrf
+                                        <button type="submit" class="pos-btn pos-btn-sm pos-btn-ghost">{{ __('receipt_templates.actions.duplicate') }}</button>
+                                    </form>
                                     <form method="POST" action="{{ route('admin.receipt-templates.destroy', $tpl) }}" class="contents"
                                           onsubmit="return confirm({{ Js::from(__('receipt_templates.actions.confirm_delete')) }})">
                                         @csrf

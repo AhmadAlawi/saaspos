@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Products\ResolveProductPrice;
 use App\Http\Controllers\Controller;
 use App\Models\LabelLayout;
 use App\Models\Product;
@@ -38,9 +39,15 @@ class LabelController extends Controller
         ]);
     }
 
-    public function sheet(Request $request, BarcodeRenderer $barcodes): View
+    public function sheet(Request $request, BarcodeRenderer $barcodes, ResolveProductPrice $resolvePrice): View
     {
         $this->authorize('viewAny', Product::class);
+
+        // Same active-store resolution every other admin screen uses —
+        // the label wizard has no store picker of its own, so a printed
+        // label always reflects whichever store the topbar switcher has
+        // active, honoring that store's product_store_prices override.
+        $storeId = enforce_store_access($request->integer('store_id') ?: null) ?: default_store_id();
 
         $layouts = config('labels.layouts');
 
@@ -63,12 +70,14 @@ class LabelController extends Controller
 
         $products = Product::query()
             ->whereIn('id', $data['product_id'])
-            ->get(['id', 'name', 'sku', 'barcode', 'selling_price'])
+            ->get(['id', 'name', 'sku', 'barcode', 'category_id', 'cost_price', 'selling_price', 'sale_price', 'mrp'])
             ->keyBy('id');
 
-        // Flatten to one cell per label, capped. Barcodes are rendered once
-        // per product and reused across that product's copies.
+        // Flatten to one cell per label, capped. Barcodes and the resolved
+        // (store-aware) price are computed once per product and reused
+        // across that product's copies.
         $svgCache = [];
+        $priceCache = [];
         $cells = [];
         foreach ($data['product_id'] as $i => $id) {
             $product = $products->get((int) $id);
@@ -83,11 +92,15 @@ class LabelController extends Controller
                 $svgCache[$id] = $code !== '' ? $barcodes->svg($code, 1.5, 26) : '';
             }
 
+            if (! array_key_exists($id, $priceCache)) {
+                $priceCache[$id] = $resolvePrice($product, $storeId)['charge_price'];
+            }
+
             $cell = [
                 'name'        => $product->name,
                 'sku'         => $product->sku,
                 'barcode'     => (string) ($product->barcode ?: $product->sku),
-                'price'       => format_money($product->selling_price),
+                'price'       => format_money($priceCache[$id]),
                 'barcode_svg' => $fields['barcode'] ? ($svgCache[$id] ?? '') : '',
             ];
 
@@ -99,13 +112,17 @@ class LabelController extends Controller
             }
         }
 
-        $layout  = $layouts[$data['layout']];
-        $perPage = (int) $layout['cols'] * (int) $layout['rows'];
-
         // Only present once an admin has opened the Label Designer for this
         // layout key (see LabelLayout::firstOrCreateForKey()) — otherwise
         // `sheet.blade.php` keeps rendering its original fixed-stack markup.
         $labelLayout = LabelLayout::with('elements')->where('layout_key', $data['layout'])->first();
+
+        // A saved size override (see LabelLayout::effectiveLayout()) applies
+        // here too — the sheet actually printed must match whatever the
+        // designer/preview showed, not silently fall back to the config
+        // stock size for this layout key.
+        $layout  = $labelLayout ? $labelLayout->effectiveLayout($layouts[$data['layout']]) : $layouts[$data['layout']];
+        $perPage = (int) $layout['cols'] * (int) $layout['rows'];
 
         return view('admin.products.labels.sheet', [
             'cells'       => $cells,

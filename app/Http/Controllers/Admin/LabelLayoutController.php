@@ -35,9 +35,13 @@ class LabelLayoutController extends Controller
 
         return view('admin.products.labels.designer', [
             'layoutKey'   => $layoutKey,
-            'layout'      => $layouts[$layoutKey],
+            'layout'      => $labelLayout->effectiveLayout($layouts[$layoutKey]),
             'labelLayout' => $labelLayout,
             'elements'    => $labelLayout->elements->keyBy('type'),
+            // Same sample content the preview iframe renders — the canvas
+            // now server-renders the real `_cell-canvas` partial instead of
+            // synthetic placeholder boxes, so what you drag IS what prints.
+            'cell'        => $this->sampleCell(),
         ]);
     }
 
@@ -55,6 +59,7 @@ class LabelLayoutController extends Controller
             'x_pct'       => ['sometimes', 'numeric', 'min:0', 'max:100'],
             'y_pct'       => ['sometimes', 'numeric', 'min:0', 'max:100'],
             'width_pct'   => ['sometimes', 'nullable', 'numeric', 'min:1', 'max:100'],
+            'height_pct'  => ['sometimes', 'nullable', 'numeric', 'min:1', 'max:100'],
             'font_size'   => ['sometimes', 'integer', 'min:5', 'max:48'],
             'font_family' => ['sometimes', 'in:'.implode(',', LabelLayoutElement::FONTS)],
             'align'       => ['sometimes', 'in:left,center,right'],
@@ -64,7 +69,7 @@ class LabelLayoutController extends Controller
             'image_remove' => ['sometimes', 'boolean'],
         ]);
 
-        $update = array_intersect_key($data, array_flip(['x_pct', 'y_pct', 'width_pct', 'font_size', 'font_family', 'align', 'scale', 'is_visible']));
+        $update = array_intersect_key($data, array_flip(['x_pct', 'y_pct', 'width_pct', 'height_pct', 'font_size', 'font_family', 'align', 'scale', 'is_visible']));
 
         if ($type === 'image') {
             $config = $element->config ?? [];
@@ -93,23 +98,84 @@ class LabelLayoutController extends Controller
         abort_unless(array_key_exists($layoutKey, $layouts), 404);
 
         $labelLayout = LabelLayout::firstOrCreateForKey($layoutKey);
-        $layout = $layouts[$layoutKey];
 
+        return response()->view('admin.products.labels.preview', [
+            'layout'   => $labelLayout->effectiveLayout($layouts[$layoutKey]),
+            'cell'     => $this->sampleCell(),
+            'elements' => $labelLayout->elements->keyBy('type'),
+        ]);
+    }
+
+    /**
+     * Update the label's own physical size for this shop — overrides
+     * `config('labels.layouts')[$layoutKey]`'s stock mm size. Separate
+     * endpoint from element `update()` above since this patches the
+     * {@see LabelLayout} row itself, not one of its elements.
+     */
+    public function updateDimensions(Request $request, string $layoutKey): JsonResponse
+    {
+        $this->authorize('viewAny', Product::class);
+        abort_unless(array_key_exists($layoutKey, config('labels.layouts')), 404);
+
+        $labelLayout = LabelLayout::firstOrCreateForKey($layoutKey);
+
+        $data = $request->validate([
+            'label_w_mm' => ['required', 'numeric', 'min:5', 'max:500'],
+            'label_h_mm' => ['required', 'numeric', 'min:5', 'max:500'],
+        ]);
+
+        $labelLayout->update($data);
+
+        $layout = $labelLayout->effectiveLayout(config('labels.layouts')[$layoutKey]);
+
+        return response()->json([
+            'label_w_mm' => (float) $layout['label_w_mm'],
+            'label_h_mm' => (float) $layout['label_h_mm'],
+        ]);
+    }
+
+    /**
+     * The canvas's own drag/resize surface, re-rendered fresh after every
+     * edit — same `_cell-canvas` partial the true-size preview and the
+     * print sheet use (real fonts/barcode/image, not a placeholder), just
+     * at the canvas's px-per-mm zoom. The JS re-fetches this after every
+     * commit (drag end, resize end, a property-panel change, a dimension
+     * change) instead of hand-mirroring the Blade sizing rules in
+     * JavaScript, so there's exactly one place that decides how an
+     * element looks.
+     */
+    public function canvasFragment(string $layoutKey): Response
+    {
+        $this->authorize('viewAny', Product::class);
+
+        $layouts = config('labels.layouts');
+        abort_unless(array_key_exists($layoutKey, $layouts), 404);
+
+        $labelLayout = LabelLayout::firstOrCreateForKey($layoutKey);
+        $layout = $labelLayout->effectiveLayout($layouts[$layoutKey]);
+        $pxPerMm = max(4, min(10, 260 / max($layout['label_w_mm'], $layout['label_h_mm'])));
+
+        return response()->view('admin.products.labels._cell-canvas', [
+            'elements'     => $labelLayout->elements->keyBy('type'),
+            'cell'         => $this->sampleCell(),
+            'pxPerMm'      => $pxPerMm,
+            'forceShowAll' => true,
+        ]);
+    }
+
+    /** Same sample content shown in the designer canvas and its preview iframe. */
+    private function sampleCell(): array
+    {
         $barcodes = app(BarcodeRenderer::class);
         $sampleCode = '0123456789012';
-        $cell = [
+
+        return [
             'name'        => __('labels.designer.sample_name'),
             'sku'         => 'SAMPLE-SKU',
             'barcode'     => $sampleCode,
             'price'       => format_money(9.99),
             'barcode_svg' => $barcodes->svg($sampleCode, 1.5, 26),
         ];
-
-        return response()->view('admin.products.labels.preview', [
-            'layout'   => $layout,
-            'cell'     => $cell,
-            'elements' => $labelLayout->elements->keyBy('type'),
-        ]);
     }
 
     private function deleteStoredImage(LabelLayoutElement $element): void
@@ -129,6 +195,7 @@ class LabelLayoutController extends Controller
             'x_pct'       => (float) $element->x_pct,
             'y_pct'       => (float) $element->y_pct,
             'width_pct'   => $element->width_pct !== null ? (float) $element->width_pct : null,
+            'height_pct'  => $element->height_pct !== null ? (float) $element->height_pct : null,
             'font_size'   => $element->font_size,
             'font_family' => $element->font_family,
             'align'       => $element->align,

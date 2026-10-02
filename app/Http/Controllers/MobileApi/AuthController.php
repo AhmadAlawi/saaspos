@@ -75,4 +75,54 @@ class AuthController
 
         return response()->json(['message' => 'Logged out.']);
     }
+
+    /**
+     * Every store this account can sign into — powers a Settings-screen
+     * store picker (same list `login()` returns in its 409 when a
+     * multi-store account doesn't pass `store_id`), so the app can show
+     * "you're viewing: Branch X ▾" without re-running the login flow.
+     */
+    public function stores(Request $request)
+    {
+        $user = $request->attributes->get('mobile_api_user');
+
+        return response()->json([
+            'current_store_id' => $request->attributes->get('mobile_api_store_id'),
+            'stores' => $user->accessibleStores()->map(fn ($s) => [
+                'id' => $s->id, 'name' => $s->name, 'code' => $s->code,
+            ])->values(),
+        ]);
+    }
+
+    /**
+     * Change which store the CURRENT bearer token is pinned to, in
+     * place — no re-login, no new token issued, so the app doesn't have
+     * to store a new plaintext value. This is the "select branch" a
+     * Settings screen needs: prices/stock everywhere else in the API
+     * are scoped to `mobile_api_store_id`, which comes straight from
+     * this token row (see AuthenticateMobileApiToken).
+     */
+    public function switchStore(Request $request)
+    {
+        $data = Validator::make($request->all(), [
+            'store_id' => ['required', 'integer'],
+        ])->validate();
+
+        /** @var User $user */
+        $user = $request->attributes->get('mobile_api_user');
+
+        if (! $user->canAccessStore((int) $data['store_id'])) {
+            return response()->json(['message' => 'No access to that store.'], 403);
+        }
+
+        /** @var MobileApiToken $token */
+        $token = $request->attributes->get('mobile_api_token');
+        $token->forceFill(['store_id' => (int) $data['store_id']])->save();
+
+        $store = $user->accessibleStores()->find($data['store_id']);
+
+        return response()->json([
+            'store' => ['id' => $store->id, 'name' => $store->name, 'code' => $store->code],
+        ]);
+    }
 }

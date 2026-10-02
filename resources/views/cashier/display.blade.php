@@ -296,15 +296,15 @@
                         </div>
                     </template>
 
-                    {{-- Receipt QR — scan for a no-login digital receipt.
-                         Only present for online sales (offline sales have no
-                         server link yet). --}}
-                    <template x-if="receiptQr">
+                    {{-- Claim QR — only present when no customer was
+                         attached at checkout; lets a walk-in self-attach
+                         this sale + earn points from their own phone. --}}
+                    <template x-if="claimQr">
                         <div class="cfd-thanks-receipt">
-                            <div class="cfd-qr-mini"><img :src="receiptQr" alt=""></div>
+                            <div class="cfd-qr-mini"><img :src="claimQr" alt=""></div>
                             <div class="txt">
-                                <div class="h" x-text="labels.receipt_scan"></div>
-                                <div class="s" x-text="labels.receipt_hint"></div>
+                                <div class="h" x-text="labels.claim_scan"></div>
+                                <div class="s" x-text="labels.claim_hint"></div>
                             </div>
                         </div>
                     </template>

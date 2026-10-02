@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Customers\CreateCustomer;
 use App\Actions\Sales\ChangeSalePaymentMethod;
+use App\Actions\Sales\SplitSalePayment;
 use App\Actions\Sales\CompleteSale;
 use App\Actions\Sales\HoldSale;
 use App\Actions\Sales\RecordCustomerPayment;
@@ -454,6 +455,53 @@ class SaleController extends Controller
         $productOverride = $allOverrides->whereNull('variant_id')->keyBy('product_id');
         $variantOverride = $allOverrides->whereNotNull('variant_id')->keyBy('variant_id');
 
+        // Running (scheduled, active-right-now) price rules — bulk-loaded
+        // ONCE, same as the overrides above, instead of N per-product
+        // queries via ResolveProductPrice::activeRule(). A rule beats
+        // BOTH the normal selling price and any static sale_price
+        // override when live — same precedence ResolveProductPrice uses
+        // at checkout. Without this, the cashier's displayed/tendered
+        // price never reflected a category/product-scoped rule at all
+        // (only CompleteSale ever called ResolveProductPrice), so a
+        // cashier tendered the OLD price while the server charged the
+        // discounted one — checkout then rejected the sale with
+        // "payment total is more than the grand total".
+        $runningRules    = \App\Models\PriceRule::query()
+            ->running()
+            ->where(fn ($q) => $q->whereNull('store_id')->orWhere('store_id', $store->id))
+            ->get();
+        $rulesByProduct  = $runningRules->where('scope', \App\Models\PriceRule::SCOPE_PRODUCT)->groupBy('product_id');
+        $rulesByCategory = $runningRules->where('scope', \App\Models\PriceRule::SCOPE_CATEGORY)->groupBy('category_id');
+        $rulesForAll     = $runningRules->where('scope', \App\Models\PriceRule::SCOPE_ALL);
+
+        // Most-specific-scope-wins, biggest-discount-wins on ties —
+        // mirrors ResolveProductPrice::activeRule() exactly.
+        $bestRuleFor = function (?int $productId, ?int $categoryId) use ($rulesByProduct, $rulesByCategory, $rulesForAll) {
+            foreach ([
+                $productId ? $rulesByProduct->get($productId, collect()) : collect(),
+                $categoryId ? $rulesByCategory->get($categoryId, collect()) : collect(),
+                $rulesForAll,
+            ] as $candidates) {
+                if ($candidates->isEmpty()) {
+                    continue;
+                }
+
+                return $candidates->reduce(fn ($best, $rule) => (! $best || bccomp((string) $rule->discount_value, (string) $best->discount_value, 4) > 0) ? $rule : $best);
+            }
+
+            return null;
+        };
+
+        // Same math as ResolveProductPrice::applyRule().
+        $applyPriceRule = function (string $sellingPrice, \App\Models\PriceRule $rule): string {
+            $value = (string) $rule->discount_value;
+            $price = $rule->discount_type === \App\Models\PriceRule::TYPE_PERCENT
+                ? bcmul($sellingPrice, bcdiv(bcsub('100', $value, 8), '100', 8), 4)
+                : bcsub($sellingPrice, $value, 4);
+
+            return bccomp($price, '0', 4) > 0 ? $price : '0.0000';
+        };
+
         // Bounded metadata — categories, payment methods, settings — is
         // sent only with the FIRST page (`$withMeta`). Subsequent keyset
         // pages are products-only, so we don't recompute it per page.
@@ -505,14 +553,32 @@ class SaleController extends Controller
             // scale barcodes into (product, weight) offline, so the config
             // rides along in the same blob that lands in IndexedDB.
             $cashierSettings['scale'] = $company->scale();
+
+            // Gates the recent-sales drawer's past-sale amounts — the
+            // business restricts who can see sale/shift money figures
+            // to specific people, not every cashier. The live cart
+            // total and an in-progress refund's total are NOT gated
+            // here — those are what this cashier must currently
+            // collect from or hand back to the customer in front of
+            // them, not a reporting figure.
+            $cashierSettings['can_view_amounts'] = (bool) ($request->user()?->hasPermission('sales.view_amounts') ?? false);
+
+            // Loyalty points — the redeem rate is what the cart's live
+            // "points redeemed" preview and the max-redeemable cap
+            // (Alpine's grandTotalBeforePoints/maxRedeemablePoints
+            // getters) are computed against; CompleteSale re-derives
+            // and enforces the same rate server-side, this is display
+            // only.
+            $cashierSettings['loyalty_enabled']     = (bool) ($company->loyalty_enabled ?? false);
+            $cashierSettings['loyalty_redeem_rate'] = (float) ($company->loyalty_redeem_rate ?? 100);
         }
 
-        $productPayload = $products->map(function (Product $p) use ($onHand, $variantsByParent, $variantStock, $store, $productOverride, $variantOverride) {
+        $productPayload = $products->map(function (Product $p) use ($onHand, $variantsByParent, $variantStock, $store, $productOverride, $variantOverride, $bestRuleFor, $applyPriceRule) {
                 // Variants for this product (already pre-grouped).
                 $variants = $variantsByParent->get($p->id, collect());
 
                 // Build the variant payload + price range for the tile.
-                $variantPayload = $variants->map(function (ProductVariant $v) use ($variantStock, $p, $variantOverride) {
+                $variantPayload = $variants->map(function (ProductVariant $v) use ($variantStock, $p, $variantOverride, $bestRuleFor, $applyPriceRule) {
                     // Effective selling price — store-variant override
                     // wins, then variant base, then parent default.
                     $vo = $variantOverride->get($v->id);
@@ -527,6 +593,11 @@ class SaleController extends Controller
                     // ResolveProductPrice) — variant, then parent product.
                     $salePriceEffective = $v->sale_price ?? $p->sale_price;
                     $salePrice = $salePriceEffective !== null ? (string) $salePriceEffective : null;
+                    // A running price rule beats BOTH selling_price and
+                    // sale_price — matches ResolveProductPrice's precedence
+                    // (rule is always checked against the parent product's
+                    // id/category, even for a variant line).
+                    $rule = $bestRuleFor($p->id, $p->category_id);
                     return [
                         'id'             => $v->id,
                         'sku'            => $v->sku,
@@ -534,7 +605,7 @@ class SaleController extends Controller
                         'label'          => $v->label,
                         'selling_price'  => $price,
                         'sale_price'     => $salePrice,
-                        'charge_price'   => $salePrice ?? $price,
+                        'charge_price'   => $rule ? $applyPriceRule($price, $rule) : ($salePrice ?? $price),
                         'mrp'            => $mrp,
                         'on_hand'        => $variantStock->has($v->id) ? (string) $variantStock[$v->id] : null,
                         'image_url'      => $v->image_path ? '/storage/'.$v->image_path : null,
@@ -613,7 +684,9 @@ class SaleController extends Controller
                     'tax_taxable'    => $taxable,
                     'selling_price'  => $effectiveSellingPrice,
                     'sale_price'     => $effectiveSalePrice,
-                    'charge_price'   => $effectiveSalePrice ?? $effectiveSellingPrice,
+                    'charge_price'   => ($rule = $bestRuleFor($p->id, $p->category_id))
+                        ? $applyPriceRule($effectiveSellingPrice, $rule)
+                        : ($effectiveSalePrice ?? $effectiveSellingPrice),
                     'on_hand'        => $onHand->has($p->id) ? (string) $onHand[$p->id] : null,
                     // Per-product reorder threshold so the cashier
                     // low-stock badge fires at the right level —
@@ -882,23 +955,63 @@ class SaleController extends Controller
             ->get(['product_id', 'selling_price'])
             ->keyBy('product_id');
 
-        return response()->json($rows->map(fn (Product $p) => [
+        // Same running-price-rule check buildCashierPayload() does — see
+        // its comment for why this matters (a rule-discounted product
+        // must ring up at the discounted price everywhere it can be
+        // added from, not just the main catalog grid).
+        $runningRules    = \App\Models\PriceRule::query()
+            ->running()
+            ->where(fn ($w) => $w->whereNull('store_id')->orWhere('store_id', $store->id))
+            ->get();
+        $rulesByProduct  = $runningRules->where('scope', \App\Models\PriceRule::SCOPE_PRODUCT)->groupBy('product_id');
+        $rulesByCategory = $runningRules->where('scope', \App\Models\PriceRule::SCOPE_CATEGORY)->groupBy('category_id');
+        $rulesForAll     = $runningRules->where('scope', \App\Models\PriceRule::SCOPE_ALL);
+        $bestRuleFor = function (?int $productId, ?int $categoryId) use ($rulesByProduct, $rulesByCategory, $rulesForAll) {
+            foreach ([
+                $productId ? $rulesByProduct->get($productId, collect()) : collect(),
+                $categoryId ? $rulesByCategory->get($categoryId, collect()) : collect(),
+                $rulesForAll,
+            ] as $candidates) {
+                if ($candidates->isEmpty()) {
+                    continue;
+                }
+
+                return $candidates->reduce(fn ($best, $rule) => (! $best || bccomp((string) $rule->discount_value, (string) $best->discount_value, 4) > 0) ? $rule : $best);
+            }
+
+            return null;
+        };
+        $applyPriceRule = function (string $sellingPrice, \App\Models\PriceRule $rule): string {
+            $value = (string) $rule->discount_value;
+            $price = $rule->discount_type === \App\Models\PriceRule::TYPE_PERCENT
+                ? bcmul($sellingPrice, bcdiv(bcsub('100', $value, 8), '100', 8), 4)
+                : bcsub($sellingPrice, $value, 4);
+
+            return bccomp($price, '0', 4) > 0 ? $price : '0.0000';
+        };
+
+        return response()->json($rows->map(function (Product $p) use ($overrides, $bestRuleFor, $applyPriceRule) {
+            $sellingPrice = $overrides->get($p->id)?->selling_price !== null
+                ? (string) $overrides->get($p->id)->selling_price
+                : (string) $p->selling_price;
+            $rule = $bestRuleFor($p->id, $p->category_id);
+
+            return [
             'id'             => $p->id,
             'sku'            => $p->sku,
             'name'           => $p->name,
             'barcode'        => $p->barcode,
             'unit'           => $p->unit?->code,
-            'selling_price'  => $overrides->get($p->id)?->selling_price !== null
-                ? (string) $overrides->get($p->id)->selling_price
-                : (string) $p->selling_price,
+            'selling_price'  => $sellingPrice,
             // No per-store override tier for sale_price yet — see
             // ResolveProductPrice / buildCashierPayload for the same note.
             'sale_price'     => $p->sale_price !== null ? (string) $p->sale_price : null,
-            'charge_price'   => $p->sale_price !== null
-                ? (string) $p->sale_price
-                : ($overrides->get($p->id)?->selling_price !== null
-                    ? (string) $overrides->get($p->id)->selling_price
-                    : (string) $p->selling_price),
+            // A running price rule beats both selling_price and
+            // sale_price — same precedence as buildCashierPayload/
+            // ResolveProductPrice.
+            'charge_price'   => $rule
+                ? $applyPriceRule($sellingPrice, $rule)
+                : ($p->sale_price !== null ? (string) $p->sale_price : $sellingPrice),
             'tax_group_id'   => $p->tax_group_id,
             'on_hand'        => (string) ($levels[$p->id] ?? '0.0000'),
             // Same fields the boot payload exposes so search-added
@@ -908,7 +1021,8 @@ class SaleController extends Controller
             'track_batches'  => (bool) $p->track_batches,
             'sold_by_weight' => (bool) $p->sold_by_weight,
             'reorder_level'  => $p->reorder_level !== null ? (string) $p->reorder_level : null,
-        ])->values());
+            ];
+        })->values());
     }
 
     /**
@@ -986,7 +1100,7 @@ class SaleController extends Controller
             })
             ->orderBy('name')
             ->limit(25)
-            ->get(['id', 'code', 'name', 'phone', 'business_name', 'outstanding_balance', 'default_discount_percent']);
+            ->get(['id', 'code', 'name', 'phone', 'business_name', 'outstanding_balance', 'default_discount_percent', 'loyalty_points']);
 
         return response()->json($rows->map(fn (Customer $c) => [
             'id'                       => $c->id,
@@ -998,6 +1112,7 @@ class SaleController extends Controller
             // Auto-applied as the order discount when this customer is picked
             // in the cashier (sales-checkout doc §"Assigning a customer").
             'default_discount_percent' => (string) $c->default_discount_percent,
+            'loyalty_points'           => (int) $c->loyalty_points,
         ])->values());
     }
 
@@ -1297,6 +1412,10 @@ class SaleController extends Controller
                     // No-login receipt link for the customer display's
                     // thank-you QR (and later WhatsApp / email receipts).
                     'public_receipt_url' => $sale->publicReceiptUrl(),
+                    // Only set when no customer was attached at checkout —
+                    // the CFD shows this claim QR instead of the receipt
+                    // one so a walk-in can self-attach + earn points.
+                    'claim_url' => $sale->claimUrl(),
                 ],
             ],
         );
@@ -1677,6 +1796,37 @@ class SaleController extends Controller
         return $this->jsonOrRedirect(
             $request,
             __('sales.flash.payment_method_changed'),
+            route('admin.sales.show', $sale),
+        );
+    }
+
+    /**
+     * Manager-only correction that turns one of a completed sale's
+     * tenders into several across different payment methods — see
+     * {@see SplitSalePayment}'s docblock. Same "closed sale, closed
+     * shift, still editable" eligibility as changePaymentMethod() above.
+     */
+    public function splitPayment(Request $request, Sale $sale, SalePayment $payment, SplitSalePayment $split): JsonResponse|RedirectResponse
+    {
+        $this->authorize('changePaymentMethod', $sale);
+        abort_unless((int) $payment->sale_id === (int) $sale->id, 404);
+
+        $data = $request->validate([
+            'splits'                       => ['required', 'array', 'min:2'],
+            'splits.*.payment_method_id'   => ['required', 'integer', 'exists:payment_methods,id'],
+            'splits.*.amount'              => ['required', 'numeric', 'gt:0'],
+            'reason'                       => ['required', 'string', 'max:255'],
+        ]);
+
+        try {
+            $split($sale, $payment, $data['splits'], $data['reason'], $request->user());
+        } catch (SalePaymentNotEditable $e) {
+            return $this->jsonOrError($request, $e->getMessage(), route('admin.sales.show', $sale));
+        }
+
+        return $this->jsonOrRedirect(
+            $request,
+            __('sales.flash.payment_split'),
             route('admin.sales.show', $sale),
         );
     }

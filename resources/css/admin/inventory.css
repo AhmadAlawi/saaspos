@@ -93,6 +93,28 @@
   pointer-events: none;
 }
 .inv-search input.pos-input { padding-inline-start: 36px; }
+/* Camera-scan button (Products list "find to edit" — see products-page.js
+   openCamera()) sits inside the search box on its trailing edge. Only the
+   products page uses it today; scoped generically to `.inv-search` since
+   any other list search could reuse the same button later. */
+.inv-search-camera-btn {
+  position: absolute;
+  inset-inline-end: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+.inv-search-camera-btn:hover { background: var(--bg-elevated); color: var(--text-secondary); }
+.inv-search input.pos-input:has(~ .inv-search-camera-btn) { padding-inline-end: 34px; }
 
 /* ── Adjustment Reasons: master-detail editor ─────────────────
    Right-column editor card. Mirrors `.cat-editor` shape — sticky

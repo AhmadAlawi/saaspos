@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +17,8 @@ use Illuminate\Support\Carbon;
  */
 class PriceRule extends Model
 {
+    use Auditable;
+
     public const SCOPE_ALL      = 'all';
     public const SCOPE_CATEGORY = 'category';
     public const SCOPE_PRODUCT  = 'product';

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -15,12 +17,41 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class LabelLayout extends Model
 {
-    protected $fillable = ['layout_key'];
+    use Auditable;
+
+    protected $fillable = ['layout_key', 'label_w_mm', 'label_h_mm'];
+
+    protected function casts(): array
+    {
+        return [
+            'label_w_mm' => 'decimal:2',
+            'label_h_mm' => 'decimal:2',
+        ];
+    }
 
     /** @return HasMany<LabelLayoutElement, $this> */
     public function elements(): HasMany
     {
         return $this->hasMany(LabelLayoutElement::class);
+    }
+
+    /**
+     * The label's real width/height in mm — this shop's saved override
+     * when set, else `config('labels.layouts')[$layoutKey]`'s stock size
+     * for the layout. Merged onto a copy of the config array so callers
+     * that already destructure `$layout['label_w_mm']` etc. (the print
+     * sheet, the designer, the preview) need no shape change, just this
+     * merged array instead of the raw config one.
+     *
+     * @param array<string, mixed> $configLayout
+     * @return array<string, mixed>
+     */
+    public function effectiveLayout(array $configLayout): array
+    {
+        return array_merge($configLayout, array_filter([
+            'label_w_mm' => $this->label_w_mm !== null ? (float) $this->label_w_mm : null,
+            'label_h_mm' => $this->label_h_mm !== null ? (float) $this->label_h_mm : null,
+        ], fn ($v) => $v !== null));
     }
 
     /**

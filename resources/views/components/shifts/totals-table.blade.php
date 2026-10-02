@@ -1,55 +1,67 @@
 @props(['totals'])
 
 {{-- Shared display of a shift's totals — drives the close form preview,
-     the show page's X/Z panel, and the eventual thermal Z-report. --}}
-<div class="space-y-4">
-    {{-- Sales summary --}}
-    <div>
-        <div class="text-xs uppercase tracking-wide text-muted mb-2">{{ __('shifts.sections.sales_summary') }}</div>
-        <table class="dt-table dt-table-compact">
-            <tbody>
-                <tr>
-                    <td>{{ __('shifts.totals.sales_count') }}</td>
-                    <td class="num tnum">{{ $totals['sales_count'] }}</td>
-                </tr>
-                <tr>
-                    <td>{{ __('shifts.totals.sales_total') }}</td>
-                    <td class="num tnum">{{ format_money($totals['sales_total']) }}</td>
-                </tr>
-                <tr>
-                    <td>{{ __('shifts.totals.tax_total') }}</td>
-                    <td class="num tnum">{{ format_money($totals['tax_total']) }}</td>
-                </tr>
-                <tr>
-                    <td>{{ __('shifts.totals.discount_total') }}</td>
-                    <td class="num tnum">{{ format_money($totals['discount_total']) }}</td>
-                </tr>
-                <tr>
-                    <td>{{ __('shifts.totals.refunds_count') }}</td>
-                    <td class="num tnum">{{ $totals['refunds_count'] }}</td>
-                </tr>
-                <tr>
-                    <td>{{ __('shifts.totals.refunds_total') }}</td>
-                    <td class="num tnum">{{ format_money($totals['refunds_total']) }}</td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+     the show page's X/Z panel, and the eventual thermal Z-report.
 
-    {{-- Payments breakdown --}}
-    <div>
-        <div class="text-xs uppercase tracking-wide text-muted mb-2">{{ __('shifts.sections.payments_received') }}</div>
-        <table class="dt-table dt-table-compact">
-            <tbody>
-                @foreach (collect($totals['payment_totals'])->sortBy('name') as $row)
+     `sales.view_amounts` gates the revenue-reporting sections (sales
+     count/total, tax, discounts, refunds, per-method payment
+     breakdown) — the Cash Drawer section below stays visible to
+     whoever can reach this page at all, since counting and
+     reconciling the till is an operational necessity for whoever is
+     closing it, not a reporting privilege. --}}
+@php
+    $canViewAmounts = auth()->user()?->hasPermission('sales.view_amounts', current_store_id()) ?? false;
+@endphp
+<div class="space-y-4">
+    @if ($canViewAmounts)
+        {{-- Sales summary --}}
+        <div>
+            <div class="text-xs uppercase tracking-wide text-muted mb-2">{{ __('shifts.sections.sales_summary') }}</div>
+            <table class="dt-table dt-table-compact">
+                <tbody>
                     <tr>
-                        <td>{{ $row['name'] }}</td>
-                        <td class="num tnum">{{ format_money($row['amount']) }}</td>
+                        <td>{{ __('shifts.totals.sales_count') }}</td>
+                        <td class="num tnum">{{ $totals['sales_count'] }}</td>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
+                    <tr>
+                        <td>{{ __('shifts.totals.sales_total') }}</td>
+                        <td class="num tnum">{{ format_money($totals['sales_total']) }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ __('shifts.totals.tax_total') }}</td>
+                        <td class="num tnum">{{ format_money($totals['tax_total']) }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ __('shifts.totals.discount_total') }}</td>
+                        <td class="num tnum">{{ format_money($totals['discount_total']) }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ __('shifts.totals.refunds_count') }}</td>
+                        <td class="num tnum">{{ $totals['refunds_count'] }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ __('shifts.totals.refunds_total') }}</td>
+                        <td class="num tnum">{{ format_money($totals['refunds_total']) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Payments breakdown --}}
+        <div>
+            <div class="text-xs uppercase tracking-wide text-muted mb-2">{{ __('shifts.sections.payments_received') }}</div>
+            <table class="dt-table dt-table-compact">
+                <tbody>
+                    @foreach (collect($totals['payment_totals'])->sortBy('name') as $row)
+                        <tr>
+                            <td>{{ $row['name'] }}</td>
+                            <td class="num tnum">{{ format_money($row['amount']) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 
     {{-- Cash drawer --}}
     <div>

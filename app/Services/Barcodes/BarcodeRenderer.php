@@ -32,12 +32,12 @@ class BarcodeRenderer
         $type = $this->resolveType($value);
 
         try {
-            return $this->generator->getBarcode($value, $type, $widthFactor, $height);
+            return $this->stripXmlProlog($this->generator->getBarcode($value, $type, $widthFactor, $height));
         } catch (\Throwable $e) {
             // Fall back to Code 128 if the value didn't satisfy EAN-13.
             if ($type !== BarcodeGeneratorSVG::TYPE_CODE_128) {
                 try {
-                    return $this->generator->getBarcode($value, BarcodeGeneratorSVG::TYPE_CODE_128, $widthFactor, $height);
+                    return $this->stripXmlProlog($this->generator->getBarcode($value, BarcodeGeneratorSVG::TYPE_CODE_128, $widthFactor, $height));
                 } catch (\Throwable $e2) {
                     return '';
                 }
@@ -45,6 +45,26 @@ class BarcodeRenderer
 
             return '';
         }
+    }
+
+    /**
+     * picqer's SvgRenderer defaults to "standalone" output — an
+     * `<?xml ... ?>` processing instruction plus a full `<!DOCTYPE svg
+     * PUBLIC ...>` declaration BEFORE the `<svg>` tag (there's no way to
+     * ask the library for its "inline" mode through getBarcode()). That's
+     * fine for a file saved on its own, but this string gets embedded
+     * directly into an HTML label sheet — once per copy of a label, so a
+     * multi-copy print run repeats that prolog+DOCTYPE many times over.
+     * Browsers don't render a mid-document DOCTYPE as visible content,
+     * but it's invalid HTML that some print engines/PDF renderers choke
+     * on inconsistently, which is exactly the kind of thing that shows up
+     * as "every other label prints blank." Strip down to the bare `<svg
+     * ...>…</svg>` element, which is all that's ever wanted here.
+     */
+    private function stripXmlProlog(string $svg): string
+    {
+        $pos = strpos($svg, '<svg');
+        return $pos === false ? $svg : substr($svg, $pos);
     }
 
     private function resolveType(string $value): string

@@ -26,6 +26,12 @@ ENV WEB_DOCUMENT_ROOT=/app/public \
 
 WORKDIR /app
 
+# ffmpeg — RTSP-to-HLS live camera streaming (beta). See
+# App\Services\Cameras\HlsStreamManager. `-c:v copy` in that service
+# avoids re-encoding, so this only needs to exist, not be fast.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Dependencies first (better layer caching on rebuilds).
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction
@@ -54,6 +60,15 @@ COPY docker/mobile-api-vhost.conf /opt/docker/etc/nginx/vhost.common.d/10-mobile
 # location block treats a bare directory match as "found" by try_files
 # before ever trying index.html, and serves a 403 (autoindex off) instead.
 COPY docker/documentation-vhost.conf /opt/docker/etc/nginx/vhost.common.d/11-documentation.conf
+
+# Explicit gzip — see docker/gzip.conf for why this isn't left to the
+# base image's defaults. Biggest lever available for slow/metered
+# store connections without touching app code.
+COPY docker/gzip.conf /opt/docker/etc/nginx/vhost.common.d/05-gzip.conf
+
+# Live camera streaming (beta) — MIME types + caching for the HLS
+# playlists/segments HlsStreamManager writes to storage/app/public/hls/.
+COPY docker/hls.conf /opt/docker/etc/nginx/vhost.common.d/15-hls.conf
 
 # Runs migrations + tenant:provision on every deploy, then hands off to the
 # image's normal supervisord entrypoint (nginx + php-fpm + scheduler).

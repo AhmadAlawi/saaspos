@@ -65,6 +65,19 @@ class CloseShift
             $expected = $totals['expected_cash'];
             $variance = bcsub($counted, $expected, 4);
 
+            // Card counted is optional — a manager who doesn't bother
+            // reconciling the terminal batch just leaves it blank, and
+            // both columns stay null (distinct from a real zero count).
+            // Catches the "cash came up short but the card batch came
+            // up heavy by the same amount" case: a sale rung on the
+            // wrong tender, not an actual missing/extra cash.
+            $cardCountedRaw = $data['closing_card_counted'] ?? null;
+            $cardCounted = ($cardCountedRaw !== null && $cardCountedRaw !== '')
+                ? $this->fmt((string) $cardCountedRaw)
+                : null;
+            $expectedCard = $this->cardTotal($totals['payment_totals']);
+            $cardVariance = $cardCounted !== null ? bcsub($cardCounted, $expectedCard, 4) : null;
+
             // Tolerance: per-store column on `stores.cash_variance_tolerance`.
             // Filter exposed so plugins can shape per-cashier dynamically.
             $store = Store::query()->find($shift->store_id);
@@ -95,6 +108,8 @@ class CloseShift
             $shift->forceFill([
                 'closed_at'             => now(),
                 'closing_cash_counted'  => $counted,
+                'closing_card_counted'  => $cardCounted,
+                'card_variance'         => $cardVariance,
                 'closing_denominations' => $data['closing_denominations'] ?? null,
                 'expected_cash'         => $expected,
                 'cash_variance'         => $variance,
@@ -105,6 +120,11 @@ class CloseShift
                 'refunds_count'         => $totals['refunds_count'],
                 'refunds_total'         => $totals['refunds_total'],
                 'payment_totals'        => $totals['payment_totals'],
+                // Full ComputeShiftTotals() snapshot, frozen once here — a
+                // Z-report reprint reads this instead of recomputing live,
+                // so it can never drift after close (e.g. a refund made on
+                // a later day flipping this shift's sale status).
+                'frozen_totals'         => $totals,
                 'force_closed_by'       => $isForceClose ? $user->id : null,
                 'status'                => $status,
                 'notes'                 => $mergedNotes,
@@ -133,5 +153,18 @@ class CloseShift
         $sign = bccomp($v, '0', 8) < 0 ? '-' : '';
         $abs  = ltrim($v, '-');
         return $sign.bcadd($abs, '0', 4);
+    }
+
+    /** Sum every `payment_totals` row of type 'card' — a store can have
+     *  more than one card method (two terminals, say). */
+    private function cardTotal(array $paymentTotals): string
+    {
+        $sum = '0';
+        foreach ($paymentTotals as $row) {
+            if (($row['type'] ?? null) === 'card') {
+                $sum = bcadd($sum, (string) ($row['amount'] ?? '0'), 4);
+            }
+        }
+        return $sum;
     }
 }

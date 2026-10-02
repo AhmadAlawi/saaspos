@@ -22,8 +22,14 @@
  * saturate the connection on a 500-product catalog (a typical
  * cashier load fetches catalog + maybe a customer search + the
  * first heartbeat; piling 500 image requests on top of that would
- * delay the interactive paint).
+ * delay the interactive paint). Skipped entirely on a known-slow or
+ * Data-Saver connection — the whole point of this module is a nice-
+ * to-have offline cushion, not something worth spending a metered
+ * cashier's data budget on; the lazy-load fallback still works, it's
+ * just not pre-warmed.
  */
+
+import { isSlowConnection } from './network-quality.js';
 
 const MAX_CONCURRENT = 12;
 const _seen = new Set();
@@ -36,7 +42,7 @@ let _running = 0;
  * fetched are skipped on subsequent calls.
  */
 export function prefetchCatalogImages(products) {
-    if (!Array.isArray(products)) return;
+    if (!Array.isArray(products) || isSlowConnection()) return;
     for (const p of products) {
         if (p?.image_url) enqueue(p.image_url);
         if (Array.isArray(p?.variants)) {

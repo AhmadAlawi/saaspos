@@ -443,6 +443,7 @@ class ProductController extends Controller
             'kitItems.variant:id,product_id,sku,attributes',
             'prices',
             'barcodes' => fn ($q) => $q->orderBy('id'),
+            'photos',
         ]);
 
         return view('admin.products.edit', array_merge($this->formContext(), [

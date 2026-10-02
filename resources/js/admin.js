@@ -40,6 +40,7 @@ import { drawerOpener }         from './admin/drawer-opener.js';
 import { labelWizard }          from './admin/label-wizard.js';
 import { printQueuePanel }      from './admin/print-queue-panel.js';
 import { hardwareDiagnostics }  from './admin/hardware-diagnostics.js';
+import { cameraClipWidget }     from './admin/camera-clip-widget.js';
 import { fullscreenToggle }     from './admin/fullscreen-toggle.js';
 import { roleBuilder }          from './admin/role-builder.js';
 import { userStoreRoles }       from './admin/user-store-roles.js';
@@ -182,6 +183,7 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('labelWizard',     labelWizard);
     Alpine.data('printQueuePanel', printQueuePanel);
     Alpine.data('hardwareDiagnostics', hardwareDiagnostics);
+    Alpine.data('cameraClipWidget', cameraClipWidget);
     Alpine.data('fullscreenToggle', fullscreenToggle);
     Alpine.data('roleBuilder',     roleBuilder);
     Alpine.data('userStoreRoles',  userStoreRoles);

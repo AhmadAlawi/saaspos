@@ -126,6 +126,24 @@ trait HasPermissions
         return $roleId ? Role::find($roleId) : null;
     }
 
+    /**
+     * True if this user holds the "Admin" or "Manager" role in ANY
+     * store — used to protect manager-tier accounts from being edited
+     * or deleted by a fellow (non-super-admin) manager. Super admins
+     * never need this check on the actor side: {@see \App\Providers\AuthServiceProvider}'s
+     * `Gate::before` already bypasses every policy for them, so by the
+     * time a policy method runs, the acting user is never a super
+     * admin — only the TARGET's tier matters here.
+     */
+    public function hasManagerTierRole(): bool
+    {
+        return \Illuminate\Support\Facades\DB::table('store_user')
+            ->join('roles', 'roles.id', '=', 'store_user.role_id')
+            ->where('store_user.user_id', $this->id)
+            ->whereIn('roles.name', ['Admin', 'Manager'])
+            ->exists();
+    }
+
     public static function permissionsVersion(): int
     {
         return (int) Cache::get('perms.version', 1);

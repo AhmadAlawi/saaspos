@@ -271,6 +271,10 @@ class AdminLayout extends Component
      */
     private function userMaySee(array $item, $user): bool
     {
+        if (! empty($item['super_admin_only']) && ! ($user?->is_super_admin)) {
+            return false;
+        }
+
         if (! empty($item['permission_any'])) {
             foreach ((array) $item['permission_any'] as $permission) {
                 if ($user?->can($permission)) {

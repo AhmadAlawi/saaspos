@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 class StockAdjustmentReason extends Model
 {
+    use Auditable;
+
     protected $fillable = ['code', 'name', 'is_active', 'sort_order'];
 
     protected function casts(): array

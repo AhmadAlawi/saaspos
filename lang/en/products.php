@@ -5,6 +5,28 @@ return [
     'sub'          => 'Catalog of everything you sell — name it once, ring it everywhere.',
     'crumb_parent' => 'Catalog',
 
+    'photo_capture' => [
+        'title'          => 'Product photos',
+        'scan_prompt'    => 'Scan a barcode to begin',
+        'scan_hint'      => 'Use your connected barcode reader, or type the code and press Enter',
+        'take_photo'     => 'Take photo',
+        'photo_singular' => 'photo',
+        'photo_plural'   => 'photos',
+        'done_scan_next' => 'Done — scan next',
+        'uploading'      => 'Uploading…',
+        'upload_failed'  => "Couldn't upload that photo — try again.",
+        'delete_confirm' => 'Delete this photo?',
+        'scan' => [
+            'empty'     => 'Scan or type a barcode.',
+            'not_found' => 'No product found for barcode :barcode.',
+        ],
+    ],
+
+    'photos_gallery' => [
+        'title' => 'Captured photos',
+        'empty' => 'No photos captured yet — use the mobile photo-capture tool.',
+    ],
+
     'actions' => [
         'new'             => 'New product',
         'save'            => 'Save changes',
@@ -40,6 +62,8 @@ return [
         'empty_title'        => 'No products yet',
         'empty_sub'          => 'Click “New product” to add the first one.',
         'search_placeholder' => 'Search by name, SKU, or barcode',
+        'scan_camera'        => 'Scan barcode with camera',
+        'scan_camera_sub'    => 'Point the camera at a barcode — the search box fills in and the list jumps to it.',
         'cat_all'            => 'Category: All',
         'filter_cat_all'      => 'All categories',
         'filter_type_all'     => 'All types',

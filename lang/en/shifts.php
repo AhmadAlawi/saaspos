@@ -55,6 +55,8 @@ return [
         'z_report_sub'       => 'Frozen totals at close.',
         'details'            => 'Details',
         'day_report'         => 'Day report',
+        'all_terminals_report' => 'All terminals — day report',
+        'card_reconciliation' => 'Card reconciliation',
     ],
 
     // Daily trading-day wrapper — one open/close per (store, terminal) per
@@ -71,9 +73,32 @@ return [
         'open_days_title' => 'Open trading days',
         'open_days_sub'   => 'One per terminal — close each separately once its shifts are done.',
         'no_terminal'     => 'No terminal',
+        'status_open'     => 'still open',
         'print'           => [
             'title' => 'Print report',
         ],
+        'print_all' => [
+            'title' => 'Print all terminals',
+        ],
+        'print_day_total' => [
+            'title' => 'Print day total',
+        ],
+    ],
+
+    // Compact single-page rollup across every terminal for the business
+    // date — deliberately just the bottom-line figures a manager wants
+    // at a glance (not the per-terminal drill-down `all_terminals_report`
+    // already gives).
+    'day_total' => [
+        'report_title'  => 'Day total — all terminals',
+        'total_sales'   => 'Total sales',
+        'total_cards'   => 'Total cards',
+        'total_cash'    => 'Total cash',
+        'total_short'   => 'Total short',
+        'total_over'    => 'Total over',
+        'total_offer'   => 'Total offer',
+        'total_refund'  => 'Total refund',
+        'total_expenses' => 'Total expenses',
     ],
 
     'day_fields' => [
@@ -85,6 +110,8 @@ return [
         'refunds_count'       => 'Refunds count',
         'closing_cash_total'  => 'Closing cash (all shifts)',
         'by_employee'         => 'By employee',
+        'terminal_count'      => 'Terminals',
+        'grand_total'         => 'Grand total — all terminals',
     ],
 
     'day_errors' => [
@@ -105,6 +132,7 @@ return [
         'discount_total' => 'Discounts',
         'refunds_count'  => 'Refunds count',
         'refunds_total'  => 'Refunds total',
+        'net_sales_total' => 'Total after all',
         'opening_cash'   => 'Opening cash',
         'cash_sales'     => 'Cash sales',
         'cash_refunds'   => 'Cash refunds',
@@ -114,6 +142,7 @@ return [
         'supplier_unknown'          => 'Unknown supplier',
         'expected_cash'  => 'Expected cash',
         'counted_cash'   => 'Counted cash',
+        'counted_card'   => 'Counted card',
         'variance'       => 'Variance',
     ],
 
@@ -124,8 +153,12 @@ return [
         'opening_cash'         => 'Counted opening cash',
         'opening_cash_help'    => 'How much cash is in the drawer right now. The cashier sees this on every receipt.',
         'closing_cash_counted' => 'Counted closing cash',
+        'closing_card_counted' => 'Counted card (optional)',
+        'closing_card_counted_placeholder' => 'Card terminal batch total, if you want to reconcile it',
         'expected_cash'        => 'Expected cash',
+        'expected_card'        => 'Expected card',
         'variance'             => 'Variance',
+        'card_variance'        => 'Card variance',
         'variance_reason'      => 'Variance reason',
         'variance_notes'       => 'Variance notes',
         'notes'                => 'Notes',
@@ -195,6 +228,7 @@ return [
         'terminal_busy'               => 'Another cashier already has an open shift on this terminal. They must close it first.',
         'terminal_required'           => 'Select a terminal to open a shift.',
         'terminal_invalid'            => 'That terminal isn\'t available for this store.',
+        'amounts_restricted'          => 'You don\'t have permission to view sale amounts.',
     ],
 
     // Cashier shift gate (Slice A) — the blocking overlay shown on the

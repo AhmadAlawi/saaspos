@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Terminal extends Model
 {
+    use Auditable;
+
     protected $fillable = [
         'store_id',
         'code',
@@ -31,6 +35,9 @@ class Terminal extends Model
         'receipt_template_id',
         'last_seen_at',
         'is_active',
+        // Beta camera integration — which NVR channel covers this till.
+        // See App\Http\Controllers\Admin\CameraSettingsController.
+        'camera_channel',
     ];
 
     protected function casts(): array

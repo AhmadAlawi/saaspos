@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
@@ -16,6 +18,8 @@ use Illuminate\Support\Collection;
  */
 class ReceiptTemplate extends Model
 {
+    use Auditable;
+
     // 'blocks' = list-ordered sections (existing editor). 'canvas' = free
     // x/y positioned elements (see ReceiptTemplateElement) — the whole
     // receipt gets rasterized as one bitmap for ESC/POS in this mode

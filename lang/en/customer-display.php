@@ -67,6 +67,8 @@ return [
         'change'       => 'Change',
         'receipt_scan' => 'Scan for your receipt',
         'receipt_hint' => 'A digital copy, no paper needed',
+        'claim_scan'   => 'Scan to join & earn points',
+        'claim_hint'   => 'Get credit for this purchase on your loyalty account',
     ],
 
 ];

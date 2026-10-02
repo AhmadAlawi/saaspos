@@ -18,7 +18,7 @@ class SalesByProductReportController extends Controller
 
     public function index(Request $request): View
     {
-        abort_unless($request->user()?->hasPermission('reports.view_financial'), 403);
+        abort_unless($request->user()?->hasPermission('reports.view_financial') && $request->user()?->hasPermission('sales.view_amounts'), 403);
 
         [$from, $to, $storeId, $period] = $this->reportFilters($request);
         $rows    = ($this->query)($from, $to, $storeId);
@@ -37,7 +37,7 @@ class SalesByProductReportController extends Controller
 
     public function export(Request $request, ExportSalesByProduct $export): StreamedResponse
     {
-        abort_unless($request->user()?->hasPermission('reports.view_financial'), 403);
+        abort_unless($request->user()?->hasPermission('reports.view_financial') && $request->user()?->hasPermission('sales.view_amounts'), 403);
 
         [$from, $to, $storeId] = $this->reportFilters($request);
         $rows   = ($this->query)($from, $to, $storeId);

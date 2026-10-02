@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use App\Models\Concerns\MasksDemoEmail;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -23,6 +25,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Store extends Model
 {
+    use Auditable;
+
     use MasksDemoEmail, SoftDeletes;
 
     protected $fillable = [

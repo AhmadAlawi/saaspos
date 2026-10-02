@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
+
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class UnitCategory extends Model
 {
+    use Auditable;
+
     protected $fillable = ['name', 'slug', 'sort_order', 'is_active'];
 
     protected function casts(): array

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Actions\Cashier\RecordCashierActivity;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\PinLoginRequest;
@@ -26,7 +27,7 @@ class LoginController extends Controller
             : view('auth.login');
     }
 
-    public function attempt(LoginRequest $request): RedirectResponse|JsonResponse
+    public function attempt(LoginRequest $request, RecordCashierActivity $record): RedirectResponse|JsonResponse
     {
         $request->ensureIsNotRateLimited();
 
@@ -50,6 +51,7 @@ class LoginController extends Controller
 
         $request->clearRateLimit();
         $request->session()->regenerate();
+        try { $record(['type' => 'auth', 'action' => 'auth.login', 'meta' => ['method' => 'password']], $request); } catch (\Throwable) { /* best-effort */ }
 
         if ($request->expectsJson()) {
             $intended = session()->pull('url.intended', $this->defaultRedirect());
@@ -68,7 +70,7 @@ class LoginController extends Controller
      * with no store context yet, so {@see ResolveUserByPin} scans every
      * active PIN-holder system-wide instead.
      */
-    public function attemptPin(PinLoginRequest $request, ResolveUserByPin $resolve): RedirectResponse|JsonResponse
+    public function attemptPin(PinLoginRequest $request, ResolveUserByPin $resolve, RecordCashierActivity $record): RedirectResponse|JsonResponse
     {
         $request->ensureIsNotRateLimited();
 
@@ -90,6 +92,7 @@ class LoginController extends Controller
         $request->clearRateLimit();
         Auth::login($user);
         $request->session()->regenerate();
+        try { $record(['type' => 'auth', 'action' => 'auth.login', 'meta' => ['method' => 'pin']], $request); } catch (\Throwable) { /* best-effort */ }
 
         if ($request->expectsJson()) {
             $intended = session()->pull('url.intended', $this->defaultRedirect());
@@ -99,8 +102,11 @@ class LoginController extends Controller
         return redirect()->intended($this->defaultRedirect());
     }
 
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request, RecordCashierActivity $record): RedirectResponse
     {
+        // Logged BEFORE Auth::logout() — the action reads auth()->id()
+        // for attribution, which is gone the instant logout() runs.
+        try { $record(['type' => 'auth', 'action' => 'auth.logout'], $request); } catch (\Throwable) { /* best-effort */ }
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

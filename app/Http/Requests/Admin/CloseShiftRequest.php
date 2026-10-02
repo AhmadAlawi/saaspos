@@ -16,6 +16,9 @@ class CloseShiftRequest extends FormRequest
     {
         return [
             'closing_cash_counted'    => ['required', 'numeric', 'min:0'],
+            // Optional — a store that doesn't want to reconcile the card
+            // terminal at close can just leave it blank.
+            'closing_card_counted'    => ['nullable', 'numeric', 'min:0'],
             'variance_reason'         => ['nullable', 'string', 'max:64'],
             'variance_notes'          => ['nullable', 'string', 'max:1000'],
             'notes'                   => ['nullable', 'string', 'max:1000'],
@@ -30,6 +33,7 @@ class CloseShiftRequest extends FormRequest
     {
         return [
             'closing_cash_counted' => __('shifts.fields.closing_cash_counted'),
+            'closing_card_counted' => __('shifts.fields.closing_card_counted'),
             'variance_reason'      => __('shifts.fields.variance_reason'),
             'variance_notes'       => __('shifts.fields.variance_notes'),
             'notes'                => __('shifts.fields.notes'),

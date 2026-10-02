@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\Auditable;
 use App\Models\Concerns\MasksDemoEmail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class Company extends Model
 {
+    use Auditable;
     use MasksDemoEmail;
 
     protected $table = 'company';
@@ -49,6 +51,9 @@ class Company extends Model
         'block_expired_batch_sale',
         'dashboard_setup_dismissed',
         'dashboard_setup_celebrated',
+        'loyalty_enabled', 'loyalty_earn_rate', 'loyalty_redeem_rate',
+        'apple_wallet_enabled', 'apple_team_id', 'apple_pass_type_id', 'apple_cert_password',
+        'passfast_api_key', 'passfast_template_id', 'passfast_app_id',
     ];
 
     protected function casts(): array
@@ -93,6 +98,12 @@ class Company extends Model
             'license_grace_until'         => 'datetime',
             'auto_apply_markup_on_receive' => 'boolean',
             'block_expired_batch_sale'    => 'boolean',
+            'loyalty_enabled'             => 'boolean',
+            'loyalty_earn_rate'           => 'decimal:4',
+            'loyalty_redeem_rate'         => 'decimal:4',
+            'apple_wallet_enabled'        => 'boolean',
+            'apple_cert_password'         => \App\Casts\SafeEncrypted::class,
+            'passfast_api_key'            => \App\Casts\SafeEncrypted::class,
         ];
     }
 

@@ -154,7 +154,7 @@ class UserController extends Controller
         }
     }
 
-    public function edit(User $user): View
+    public function edit(Request $request, User $user): View
     {
         $this->authorize('update', $user);
 
@@ -165,8 +165,12 @@ class UserController extends Controller
             ->all();
 
         return view('admin.users.edit', array_merge($this->formContext(), [
-            'user'     => $user,
-            'assigned' => $assigned,
+            'user'            => $user,
+            'assigned'        => $assigned,
+            // Create's form always needs these fields writable (a new
+            // user has to land in SOME store with SOME role) — only the
+            // edit form gates them behind super-admin.
+            'canManageAccess' => $request->user()->can('manageAccessControl', User::class),
         ]));
     }
 
@@ -178,8 +182,15 @@ class UserController extends Controller
             ? $request->boolean('is_super_admin')
             : null; // not allowed to change → leave as-is
 
+        // Password reset and role/store-access changes are super-admin-
+        // only (UserPolicy::manageAccessControl) — silently ignore those
+        // fields for anyone else instead of trusting the blanket
+        // `update` check to cover the whole payload.
+        $canManageAccess = $request->user()->can('manageAccessControl', User::class);
+        $password        = $canManageAccess ? $request->input('password') : null;
+
         try {
-            ($update)($user, $request->profileData(), $request->input('password'), $isSuperAdmin, $request->input('pin'));
+            ($update)($user, $request->profileData(), $password, $isSuperAdmin, $request->input('pin'));
         } catch (UserActionDenied $e) {
             return $this->jsonOrError(
                 $request,
@@ -188,7 +199,9 @@ class UserController extends Controller
             );
         }
 
-        ($setRoles)($user, $request->storeRoles());
+        if ($canManageAccess) {
+            ($setRoles)($user, $request->storeRoles());
+        }
 
         return $this->jsonOrRedirect(
             $request,

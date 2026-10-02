@@ -44,6 +44,7 @@
             <div><span>{{ __('shifts.totals.tax_total') }}</span><span>{{ format_money($totals['tax_total']) }}</span></div>
             <div><span>{{ __('shifts.totals.refunds_total') }}</span><span>{{ format_money($totals['refunds_total']) }}</span></div>
             <div><span>{{ __('shifts.totals.sales_count') }}</span><span>{{ $totals['sales_count'] }}</span></div>
+            <div><span>{{ __('shifts.totals.net_sales_total') }}</span><span>{{ format_money($totals['net_sales_total']) }}</span></div>
         </div>
 
         <div class="rcpt-rule"></div>
@@ -76,6 +77,15 @@
             <div class="rcpt-totals">
                 <div><span>{{ __('shifts.totals.counted_cash') }}</span><span>{{ format_money($shift->closing_cash_counted) }}</span></div>
                 <div><span>{{ __('shifts.totals.variance') }}</span><span>{{ format_money($shift->cash_variance) }}</span></div>
+            </div>
+        @endif
+        @if ($shift->closing_card_counted !== null)
+            <div class="rcpt-rule"></div>
+            <div class="rcpt-meta"><strong>{{ __('shifts.sections.card_reconciliation') }}</strong></div>
+            <div class="rcpt-totals">
+                <div><span>{{ __('shifts.fields.expected_card') }}</span><span>{{ format_money($totals['payment_totals'] ? collect($totals['payment_totals'])->where('type', 'card')->sum('amount') : 0) }}</span></div>
+                <div><span>{{ __('shifts.totals.counted_card') }}</span><span>{{ format_money($shift->closing_card_counted) }}</span></div>
+                <div><span>{{ __('shifts.fields.card_variance') }}</span><span>{{ format_money($shift->card_variance) }}</span></div>
             </div>
         @endif
     </div>

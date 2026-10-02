@@ -10,6 +10,9 @@
  *   - href           : URL (use route() in the controller / view component if needed)
  *   - permission     : single permission required to see the row
  *   - permission_any : array — row shows if the user holds ANY of these
+ *   - super_admin_only : row is hidden from everyone except
+ *                         `users.is_super_admin` accounts, regardless of
+ *                         any permission they hold (the Audit Log page)
  *   - active_ids     : array — other page ids that should light this row up
  *   - count          : optional number badge
  *   - alert          : optional warning dot
@@ -52,6 +55,7 @@ return [
             ['id' => 'dashboard', 'label' => 'Dashboard', 'icon' => 'dashboard', 'href' => '/admin'],
             ['id' => 'cashier',   'label' => 'POS',       'icon' => 'pos',       'href' => '/cashier',         'permission' => 'sales.create'],
             ['id' => 'terminals', 'label' => 'Terminals', 'icon' => 'pos',       'href' => '/admin/terminals', 'permission' => 'terminals.view'],
+            ['id' => 'cameras',   'label' => 'Cameras (Beta)', 'icon' => 'camera', 'href' => '/admin/cameras', 'permission' => 'cameras.view'],
         ],
     ],
     [
@@ -179,6 +183,9 @@ return [
             ['id' => 'stores',        'label' => 'Stores',           'icon' => 'store',    'href' => '/admin/stores',                'permission' => 'stores.view'],
             ['id' => 'hardware',      'label' => 'Hardware',         'icon' => 'printer',  'href' => '/admin/settings/hardware',      'permission' => 'hardware.diagnostics'],
             ['id' => 'system-health', 'label' => 'System Health',    'icon' => 'shield',   'href' => '/admin/settings/system-health', 'permission' => 'settings.view'],
+            ['id' => 'audit-logs',    'label' => 'Audit Log',        'icon' => 'list',     'href' => '/admin/audit-logs',             'super_admin_only' => true],
+            ['id' => 'camera-settings', 'label' => 'Cameras (Beta)', 'icon' => 'camera',  'href' => '/admin/settings/cameras',       'super_admin_only' => true],
+            ['id' => 'apple-wallet-settings', 'label' => 'Apple Wallet', 'icon' => 'tag', 'href' => '/admin/settings/apple-wallet', 'super_admin_only' => true],
             ['id' => 'languages',     'label' => 'Languages',        'icon' => 'globe',    'href' => '/admin/languages',              'permission' => 'settings.view'],
             ['id' => 'settings',      'label' => 'General settings', 'icon' => 'settings', 'href' => '/admin/settings',               'permission' => 'settings.view'],
         ],

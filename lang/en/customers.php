@@ -127,6 +127,7 @@ return [
         'loyalty'     => 'Loyalty points',
         'since'       => 'Customer since',
         'first_store' => 'First store',
+        'wallet_link' => 'Add to Apple Wallet →',
     ],
 
     'actions' => [

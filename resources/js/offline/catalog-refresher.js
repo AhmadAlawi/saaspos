@@ -27,13 +27,18 @@ import { posGet } from '../lib/http.js';
 import { applyCatalogMeta, putCatalogProducts, finalizeCatalogProducts } from './dexie-schema.js';
 import { prefetchCatalogImages } from './image-prefetcher.js';
 import { markOk, markFail } from './connectivity.js';
+import { isSlowConnection } from './network-quality.js';
 
 const SYNC_URL = '/cashier/sync';
 
 // Network page size for the background loop. Larger than the inline seed
 // (60) because this runs in the background — fewer round-trips, each still
 // a modest, index-friendly query. A 1000-SKU store syncs in ~5 requests.
+// Shrunk on a known-slow/metered link (Network Information API) — more
+// requests, but each one is small enough to actually complete instead of
+// timing out mid-page and losing the whole page's progress.
 const PAGE_SIZE = 200;
+const PAGE_SIZE_SLOW = 40;
 
 // Safety stop so a server bug that always returns `has_more: true` can't
 // spin forever. 200 pages × 200 = 40k products, well past v1.0 targets.
@@ -58,11 +63,12 @@ export function refreshCatalog() {
             let syncedAt  = null;
             let storeId   = null;
             let after     = null;
+            const pageSize = isSlowConnection() ? PAGE_SIZE_SLOW : PAGE_SIZE;
 
             for (let page = 0; page < MAX_PAGES; page++) {
                 const params = after === null
-                    ? { limit: PAGE_SIZE }
-                    : { after, limit: PAGE_SIZE };
+                    ? { limit: pageSize }
+                    : { after, limit: pageSize };
                 const { data: blob } = await posGet(SYNC_URL, params);
                 if (!blob || typeof blob !== 'object') return null;
 

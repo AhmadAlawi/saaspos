@@ -8,12 +8,25 @@
         ['label' => __('shifts.close.title')],
     ]">
 
+    @php
+        // Sum every payment_totals row of type 'card' — the "expected"
+        // figure the card-counted field below reconciles against.
+        $expectedCard = '0';
+        foreach ($totals['payment_totals'] as $row) {
+            if (($row['type'] ?? null) === 'card') {
+                $expectedCard = bcadd($expectedCard, (string) ($row['amount'] ?? '0'), 4);
+            }
+        }
+    @endphp
     <div class="page-wide"
          x-data="{
              counted: 0,
              expected: @js((float) $totals['expected_cash']),
+             cardCounted: '',
+             expectedCard: @js((float) $expectedCard),
              reason: '',
              get variance() { return Number((this.counted - this.expected).toFixed(4)); },
+             get cardVariance() { return this.cardCounted === '' ? null : Number((Number(this.cardCounted) - this.expectedCard).toFixed(4)); },
          }">
         <div class="page-header mb-6">
             <div class="flex items-start gap-3">
@@ -87,6 +100,35 @@
                                 <span class="mono tnum font-semibold"
                                       :class="variance === 0 ? '' : (variance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')"
                                       x-text="$formatMoney(variance)"></span>
+                            </div>
+                        </div>
+
+                        {{-- Optional — reconciles the card terminal's own
+                             batch total against what the system recorded.
+                             Catches a sale rung on the wrong tender (cash
+                             short + card over by the same amount is a
+                             mis-keyed payment method, not missing cash). --}}
+                        <label class="field">
+                            <span class="field-label">{{ __('shifts.fields.closing_card_counted') }}</span>
+                            <input type="number"
+                                   name="closing_card_counted"
+                                   x-model="cardCounted"
+                                   class="pos-input"
+                                   step="0.0001"
+                                   min="0"
+                                   placeholder="{{ __('shifts.fields.closing_card_counted_placeholder') }}">
+                        </label>
+
+                        <div class="bg-surface-subtle rounded-lg p-3 text-sm" x-show="cardCounted !== ''" x-cloak>
+                            <div class="flex items-center justify-between">
+                                <span class="text-muted">{{ __('shifts.fields.expected_card') }}</span>
+                                <span class="mono tnum" x-text="$formatMoney(expectedCard)"></span>
+                            </div>
+                            <div class="flex items-center justify-between mt-1">
+                                <span class="text-muted">{{ __('shifts.fields.card_variance') }}</span>
+                                <span class="mono tnum font-semibold"
+                                      :class="cardVariance === 0 ? '' : (cardVariance > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')"
+                                      x-text="cardVariance === null ? '—' : $formatMoney(cardVariance)"></span>
                             </div>
                         </div>
 

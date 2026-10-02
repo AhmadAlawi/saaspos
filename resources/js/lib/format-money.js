@@ -102,6 +102,16 @@ export function posFormatQty(amount) {
     return fmt.decimals > 0 ? grouped + fmt.decimal_separator + fracPart : grouped;
 }
 
+/**
+ * The active currency's decimal precision (e.g. 2 for USD, 3 for JOD/KWD).
+ * Callers that seed a numeric input's value (not a display string) need
+ * this instead of `posFormatMoney` — a 3-decimal currency's `.toFixed(2)`
+ * silently drops real money (see cashier-page.js's payTendered seeding).
+ */
+export function posMoneyDecimals(currencyCode = null) {
+    return getFormat(currencyCode || _baseCode).decimals;
+}
+
 /** Hot-reload the registry (e.g. after the user changes Settings → Currency mid-session). */
 export function reloadCurrencyRegistry() {
     _registry = null;
@@ -111,8 +121,9 @@ export function reloadCurrencyRegistry() {
 /** Install the formatters as globals + Alpine magics. */
 export function registerFormatMoney(Alpine) {
     loadRegistry();
-    window.posFormatMoney = posFormatMoney;
-    window.posFormatQty   = posFormatQty;
+    window.posFormatMoney   = posFormatMoney;
+    window.posFormatQty     = posFormatQty;
+    window.posMoneyDecimals = posMoneyDecimals;
     if (Alpine?.magic) {
         Alpine.magic('formatMoney', () => posFormatMoney);
         Alpine.magic('formatQty',   () => posFormatQty);

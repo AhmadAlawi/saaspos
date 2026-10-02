@@ -27,11 +27,12 @@ import QRCode from 'qrcode';
 import { hasCatalog, readCatalogBlob, enqueueSale, searchCachedCustomers, readCachedBatches, enqueueCustomerCreate, nextLocalCustomerId } from '../offline/dexie-schema.js';
 import { refreshCatalog } from '../offline/catalog-refresher.js';
 import { startConnectivity, subscribe as subscribeConnectivity, forcePing } from '../offline/connectivity.js';
+import { isSlowConnection } from '../offline/network-quality.js';
 import { prefetchCatalogImages } from '../offline/image-prefetcher.js';
 import { startSyncEngine, subscribeQueue, drainQueue } from '../offline/sync-engine.js';
 import { startPwa, subscribePwa, promptInstall, applyUpdate } from '../offline/pwa-installer.js';
 import { decodeScaleBarcode } from './scale-barcode.js';
-import { playAddBeep } from './beep.js';
+import { playAddBeep, playErrorBeep } from './beep.js';
 import { decodeGs128, gtinMatches } from './gs1-128.js';
 import { printReceipt, printHtml, openDrawer, DrawerKickUnavailable } from '../hardware/print-bridge.js';
 import { enqueueFailedPrint } from '../hardware/print-queue.js';
@@ -61,14 +62,17 @@ export function cashierPage({
     refundPrintPayloadUrlTemplate,
     correctedCopyPrintPayloadUrlTemplate,
     printLogUrl,
+    activityLogUrl = null,
     reprintLastUrl,
     recentsListUrl,
     drawerNoSaleUrl = null,
+    drawerPinUrl = null,
     refundLookupUrl,
     refundShowUrlTemplate,
     refundStoreUrlTemplate,
     refundStoreBlindUrl,
     refundApprovalUrl,
+    pinChangeUrl = null,
     gatewayStartUrl,
     gatewayStatusUrl,
     posSessionCreateUrl,
@@ -197,6 +201,10 @@ export function cashierPage({
         customer:               null,   // null = walk-in
         customerPickerOpen:     false,
         customerPickerQuery:    '',
+        // Points the cashier wants to redeem on THIS sale — reset
+        // whenever the attached customer changes (a redemption is
+        // never carried over to a different customer).
+        pointsToRedeem:         0,
         customerPickerResults:  [],
         customerPickerLoading:  false,
         _customerSearchTimer:   null,
@@ -308,6 +316,14 @@ export function cashierPage({
         blindRefundSuccessOpen: false,
         blindRefundSuccess:    null,
 
+        /* ── Self-service "Change my PIN" (overflow menu) ─────────── */
+        changePinOpen:        false,
+        changePinSubmitting:  false,
+        // 'current' → 'new' → 'confirm', one pin-pad screen per step —
+        // same one-6-digit-pad-at-a-time UX as discount/refund approval.
+        changePinStep:        'current',
+        changePinForm:        { current_pin: '', pin: '', pin_confirmation: '' },
+
         /* ── Manager PIN approval for a refund (either flow above) ── */
         refundApprovalOpen:       false,
         refundApprovalSubmitting: false,
@@ -335,6 +351,18 @@ export function cashierPage({
         drawerNoSaleOpen:   false,
         drawerNoSaleReason: '',
         drawerNoSaleBusy:   false,
+
+        /* ── Focus-mode "Open drawer" rail button — PIN identifies who,
+             open to every active team member (no permission gate). ── */
+        drawerPinOpen:      false,
+        drawerPinForm:      { pin: '' },
+        drawerPinBusy:      false,
+
+        /* ── Scan/search "no product found" alert — blocks further
+             scans until acknowledged, so a miss mid-scan-run doesn't
+             slip through silently (see _scanNotFound() below). ── */
+        scanNotFoundOpen:  false,
+        scanNotFoundQuery: '',
 
         /* ── Recent sales drawer ─────────────────────────────── */
         recentsDrawerOpen: false,
@@ -484,17 +512,31 @@ export function cashierPage({
 
 
             // Background catalog refresh — never awaited; never throws.
-            refreshCatalog().then(async (result) => {
-                if (!result) return;
-                try {
-                    const blob = await readCatalogBlob();
-                    if (Array.isArray(blob.products) && blob.products.length > 0) {
-                        this.products       = this._sortProducts(blob.products);
-                        this.categories     = blob.categories;
-                        this.paymentMethods = blob.payment_methods;
-                    }
-                } catch (_) { /* no-op */ }
-            });
+            this._refreshCatalogAndApply();
+
+            // This used to be the ONLY refresh of the whole shift — a
+            // price/stock edit made in admin never reached an already-open
+            // till until the cashier manually hit "Refresh data" or
+            // reloaded the tab, so a sale could ring up (and print/charge)
+            // at a stale price even though CompleteSale always re-prices
+            // server-side at completion (the invoice saved correctly; the
+            // SCREEN just kept showing the old number the whole time).
+            // Re-pull periodically so an open terminal self-heals without
+            // anyone remembering to refresh it.
+            if (!this._catalogRefreshTimer) {
+                this._catalogRefreshTimer = setInterval(() => {
+                    // Skip this background tick on a known-slow/metered
+                    // link — CompleteSale re-prices server-side at
+                    // checkout regardless (see the comment above), so the
+                    // only cost of skipping is the SCREEN staying stale a
+                    // little longer, which is cheaper than burning a
+                    // multi-request catalog pull every 5 minutes on 2G.
+                    // The boot-time pull above and the manual "Refresh
+                    // data" button are never throttled.
+                    if (isSlowConnection()) return;
+                    this._refreshCatalogAndApply();
+                }, 5 * 60_000);
+            }
 
             // Pre-warm the browser cache for every product image so
             // the cart line / barcode-scan flow paints from cache when
@@ -563,7 +605,11 @@ export function cashierPage({
             // Watch payment/success modal close → re-focus the search bar
             // so the cashier can immediately start the next ring-up.
             this.$watch('payOpen',     (v) => { if (!v) this.$nextTick(() => this.focusSearch()); });
-            this.$watch('successOpen', (v) => { if (!v) this.$nextTick(() => this.focusSearch()); });
+            // After a sale completes and the receipt/success modal closes
+            // (including "New sale"), the next action is almost always
+            // scanning the first item of the next customer's order — land
+            // the cursor on the barcode field, not the name-search box.
+            this.$watch('successOpen', (v) => { if (!v) this.$nextTick(() => this.focusScan()); });
 
             // Re-render the UPI QR whenever the amount on the wire
             // changes — split-tender edits, or when the cashier
@@ -584,6 +630,10 @@ export function cashierPage({
             //   `/` → focus search
             this._onKeyDown = (e) => {
                 if (e.altKey || e.ctrlKey || e.metaKey) return;
+                // Block every shortcut/scan-buffer path while the
+                // not-found alert is up — the popup's own Escape/Enter
+                // handlers are what's allowed to fire instead.
+                if (this.scanNotFoundOpen) return;
                 const tag = (e.target?.tagName || '').toLowerCase();
                 const inField = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable;
                 if (e.key === 'F2') {
@@ -591,7 +641,7 @@ export function cashierPage({
                     this.openCustomerPicker();
                 } else if (e.key === 'F3') {
                     e.preventDefault();
-                    if (this.cart.length > 0) this.openDiscount();
+                    if (this.cart.length > 0 && this.settings?.can_discount) this.openDiscount();
                 } else if (e.key === 'F4') {
                     e.preventDefault();
                     this.onHoldClick();
@@ -639,6 +689,33 @@ export function cashierPage({
             // sit inside the `x-show="hasMoreProducts"` footers, so they only
             // have layout (and thus only intersect) when there's more to load.
             this.$nextTick(() => this._initInfiniteScroll());
+
+            this._installErrorLogging();
+        },
+
+        /**
+         * Catches uncaught exceptions and rejected promises anywhere on
+         * the /cashier screen and logs them as `type: 'error'` — a screen
+         * "hang" is usually a thrown error stalling an Alpine reactivity
+         * cycle, so this is the client-side half of catching it (server
+         * hangs/exceptions are Laravel's own log, see LOG_CHANNEL).
+         * Throttled to avoid flooding the log if one bug fires on every
+         * frame/tick.
+         */
+        _installErrorLogging() {
+            let lastLoggedAt = 0;
+            const log = (message, stack) => {
+                const now = Date.now();
+                if (now - lastLoggedAt < 2000) return; // throttle bursts
+                lastLoggedAt = now;
+                this.logActivity('error', 'js_error', {
+                    meta: { message: String(message).slice(0, 500), stack: String(stack || '').slice(0, 2000), url: location.href },
+                });
+            };
+            this._onWindowError = (event) => log(event.message, event.error?.stack);
+            this._onUnhandledRejection = (event) => log(event.reason?.message || String(event.reason), event.reason?.stack);
+            window.addEventListener('error', this._onWindowError);
+            window.addEventListener('unhandledrejection', this._onUnhandledRejection);
         },
 
         destroy() {
@@ -646,6 +723,9 @@ export function cashierPage({
             if (this._unsubConn)  this._unsubConn();
             if (this._unsubQueue) this._unsubQueue();
             if (this._unsubPwa)   this._unsubPwa();
+            if (this._catalogRefreshTimer) clearInterval(this._catalogRefreshTimer);
+            if (this._onWindowError) window.removeEventListener('error', this._onWindowError);
+            if (this._onUnhandledRejection) window.removeEventListener('unhandledrejection', this._onUnhandledRejection);
             this._gridObserver?.disconnect();
             this._stopPaymentTimers?.();
         },
@@ -655,6 +735,27 @@ export function cashierPage({
         _sortProducts(arr) {
             return [...(arr ?? [])].sort((a, b) =>
                 String(a.name || '').localeCompare(String(b.name || '')));
+        },
+
+        /**
+         * Pull the catalog (prices, stock, payment methods) and, if it
+         * actually changed anything, apply it to the live cashier state.
+         * Called once at boot and then on a timer (see init()) so a price
+         * edited in admin reaches an already-open till without anyone
+         * remembering to hit "Refresh data". Never awaited by callers,
+         * never throws.
+         */
+        async _refreshCatalogAndApply() {
+            try {
+                const result = await refreshCatalog();
+                if (!result) return;
+                const blob = await readCatalogBlob();
+                if (Array.isArray(blob.products) && blob.products.length > 0) {
+                    this.products       = this._sortProducts(blob.products);
+                    this.categories     = blob.categories;
+                    this.paymentMethods = blob.payment_methods;
+                }
+            } catch (_) { /* no-op — same silent-fail contract as the old inline call */ }
         },
 
         _initInfiniteScroll() {
@@ -832,6 +933,7 @@ export function cashierPage({
          * scanners are configured with a CR suffix by default.
          */
         onScanEnter() {
+            if (this.scanNotFoundOpen) return;
             const q = this.scanQuery.trim().toLowerCase();
             if (q === '') return;
             // Match a variant's SKU/barcode FIRST — when a scanner hits
@@ -856,6 +958,15 @@ export function cashierPage({
                 this.scanQuery = '';
                 return;
             }
+            // Loyalty member lookup — the wallet-pass/loyalty-card barcode
+            // encodes `MBR:{code}`, a prefix that can never collide with a
+            // numeric EAN/UPC or a real product SKU. Real product barcodes
+            // win above (checked first), so this only fires when nothing
+            // in the catalog matched.
+            if (this._tryMemberLookup(this.scanQuery.trim())) {
+                this.scanQuery = '';
+                return;
+            }
             // No exact product match — try a GS1-128 scale label (GTIN +
             // embedded weight), then a plain EAN/UPC scale barcode. Real
             // product barcodes win above, so these only fire for genuine
@@ -868,10 +979,10 @@ export function cashierPage({
                 this.scanQuery = '';
                 return;
             }
-            // No exact hit — surface a toast so the cashier knows the
-            // scan was received but the product isn't recognised. (The
-            // global `posToast` helper is set up by admin.js.)
-            this.$store.toasts?.push({ type: 'warning', message: (this.labels.no_product_for_query || 'No product for ":query"').replace(':query', this.scanQuery.trim()) });
+            // No exact hit — block further scans behind a popup + error
+            // sound rather than a toast, which is too easy to miss mid
+            // scan-run (see _scanNotFound() below).
+            this._scanNotFound(this.scanQuery.trim());
             this.scanQuery = '';
         },
 
@@ -881,6 +992,7 @@ export function cashierPage({
          * exactly one tile is visible — add that one.
          */
         onSearchEnter() {
+            if (this.scanNotFoundOpen) return;
             const q = this.searchQuery.trim().toLowerCase();
             if (q === '') return;
 
@@ -903,6 +1015,12 @@ export function cashierPage({
                 return;
             }
 
+            // Loyalty member lookup — same MBR: prefix as the scan path.
+            if (this._tryMemberLookup(this.searchQuery.trim())) {
+                this.searchQuery = '';
+                return;
+            }
+
             // A GS1-128 or scale barcode typed/scanned into the search bar.
             if (this._tryGs128Barcode(this.searchQuery.trim())) {
                 this.searchQuery = '';
@@ -918,6 +1036,25 @@ export function cashierPage({
                 this.addToCart(visible[0]);
                 this.searchQuery = '';
             }
+        },
+
+        /**
+         * A scanned/entered barcode matched nothing. Blocks further
+         * scans behind a popup (rather than a toast, which a cashier
+         * mid scan-run can blow straight past without noticing) and
+         * plays a harsh error sound so a miss doesn't ring up silently.
+         * Cleared only by acknowledging the popup — see closeScanNotFound().
+         */
+        _scanNotFound(query) {
+            this.scanNotFoundQuery = query;
+            this.scanNotFoundOpen  = true;
+            playErrorBeep();
+        },
+
+        closeScanNotFound() {
+            this.scanNotFoundOpen  = false;
+            this.scanNotFoundQuery = '';
+            this.$nextTick(() => this.focusScan());
         },
 
         /* ── Cart ─────────────────────────────────────────────── */
@@ -1232,6 +1369,12 @@ export function cashierPage({
                 );
                 if (existing) {
                     existing.quantity = (parseFloat(existing.quantity) || 0) + 1;
+                    if (!silent) {
+                        this.logActivity('cart', 'cart.qty_change', {
+                            referenceType: 'Product', referenceId: existing.product_id,
+                            meta: { name: existing.name, quantity: existing.quantity },
+                        });
+                    }
                     return existing;
                 }
             }
@@ -1239,6 +1382,14 @@ export function cashierPage({
             // lines) overrides it via the spread.
             const row = { id: this._nextLineId++, quantity: 1, ...line };
             this.cart.push(row);
+            // Bulk restores (resuming a held sale) aren't a cashier "add"
+            // decision — skip logging those, same as the skipped beep above.
+            if (!silent) {
+                this.logActivity('cart', 'cart.add', {
+                    referenceType: 'Product', referenceId: row.product_id,
+                    meta: { name: row.name, quantity: row.quantity, unit_price: row.unit_price },
+                });
+            }
             return row;
         },
 
@@ -1537,12 +1688,34 @@ export function cashierPage({
 
         increment(line) {
             line.quantity = (parseFloat(line.quantity) || 0) + 1;
+            this.logActivity('cart', 'cart.qty_change', {
+                referenceType: 'Product', referenceId: line.product_id,
+                meta: { name: line.name, quantity: line.quantity },
+            });
+            this._reGateIfApproved();
         },
 
         decrement(line) {
             const q = (parseFloat(line.quantity) || 0) - 1;
-            if (q <= 0) this.removeLine(line);
-            else line.quantity = q;
+            if (q <= 0) { this.removeLine(line); return; }
+            line.quantity = q;
+            this.logActivity('cart', 'cart.qty_change', {
+                referenceType: 'Product', referenceId: line.product_id,
+                meta: { name: line.name, quantity: line.quantity },
+            });
+            this._reGateIfApproved();
+        },
+
+        /**
+         * Re-runs the discount PIN gate after a cart mutation that can
+         * shift the effective discount percentage of an ALREADY-banked
+         * approval — increment/decrement/setQty/removeLine. Only fires
+         * when there's actually a live approval to re-check; a cart with
+         * no discount, or one whose discount was never PIN-gated (under
+         * threshold), has nothing stale to catch here.
+         */
+        _reGateIfApproved() {
+            if (this.discountApproval && this.discountAmt > 0) this._gateDiscount(null);
         },
 
         /**
@@ -1599,10 +1772,20 @@ export function cashierPage({
                 return;
             }
             line.quantity = n;
+            this.logActivity('cart', 'cart.qty_change', {
+                referenceType: 'Product', referenceId: line.product_id,
+                meta: { name: line.name, quantity: line.quantity },
+            });
+            this._reGateIfApproved();
         },
 
         removeLine(line) {
             this.cart = this.cart.filter((l) => l.id !== line.id);
+            this.logActivity('cart', 'cart.remove', {
+                referenceType: 'Product', referenceId: line.product_id,
+                meta: { name: line.name, quantity: line.quantity },
+            });
+            this._reGateIfApproved();
         },
 
         clearCart() {
@@ -1688,12 +1871,53 @@ export function cashierPage({
 
         selectCustomer(c) {
             this.customer = c;
+            this.pointsToRedeem = 0;
             this.customerPickerOpen = false;
             this._applyCustomerDefaultDiscount();
         },
 
+        /**
+         * Recognizes and handles a loyalty-card scan — the wallet pass's
+         * barcode/QR encodes `MBR:{customer.code}`. Returns `true`
+         * synchronously the instant the prefix is recognized (so the
+         * caller can clear the scan field immediately); the actual
+         * lookup + attach happens async right after, same fire-and-
+         * forget shape `loadCustomerPicker()` already uses for its own
+         * server round-trip.
+         */
+        _tryMemberLookup(raw) {
+            const m = /^mbr:(.+)$/i.exec(raw.trim());
+            if (!m) return false;
+
+            const code = m[1].trim();
+            if (!code) return false;
+
+            (async () => {
+                if (this.connectivity.status === 'offline' || !customerSearchUrl) {
+                    this.$store.toasts?.push({ type: 'warning', message: this.labels.member_lookup_offline || 'Member lookup needs an internet connection.' });
+                    return;
+                }
+                try {
+                    const { data } = await posGet(customerSearchUrl, { q: code });
+                    const rows = Array.isArray(data) ? data : [];
+                    const hit = rows.find((c) => (c.code || '').toLowerCase() === code.toLowerCase());
+                    if (!hit) {
+                        this.$store.toasts?.push({ type: 'error', message: this.labels.member_not_found || 'No customer found for that card.' });
+                        return;
+                    }
+                    this.selectCustomer(hit);
+                    this.$store.toasts?.push({ type: 'success', message: (this.labels.member_attached || ':name attached.').replace(':name', hit.name || '') });
+                } catch (e) {
+                    this.$store.toasts?.push({ type: 'error', message: this.labels.member_lookup_failed || 'Couldn\'t look up that card.' });
+                }
+            })();
+
+            return true;
+        },
+
         clearCustomer() {
             this.customer = null;
+            this.pointsToRedeem = 0;
             // Drop the auto discount when the customer is removed; leave a
             // hand-entered one untouched.
             if (this.discount.source === 'customer_default') this._clearAutoDiscount();
@@ -1967,24 +2191,26 @@ export function cashierPage({
             if (!reason || this.drawerNoSaleBusy || !drawerNoSaleUrl) return;
             this.drawerNoSaleBusy = true;
 
-            const cfg = terminalPrinterConfig();
-            let kicked = false;
-            if (cfg.mode === 'webusb') {
-                try {
-                    await openDrawer(cfg);
-                    kicked = true;
-                } catch (e) {
-                    if (!(e instanceof DrawerKickUnavailable)) {
-                        console.warn('[drawer] kick failed', e);
-                    }
-                }
-            }
+            let kicked = await this._autoOpenDrawerIfNeeded(true);
 
             try {
-                await posPost(drawerNoSaleUrl, { type: 'drawer_open_no_sale', reason });
+                const { data } = await posPost(drawerNoSaleUrl, { type: 'drawer_open_no_sale', reason });
                 this.drawerNoSaleOpen = false;
+                this.logActivity('drawer', 'drawer.open_no_sale', { meta: { reason } });
                 this.$store.toasts.push({ type: 'success', message: this.labels.drawer_no_sale_recorded || 'Drawer open recorded.' });
-                if (cfg.mode === 'webusb' && !kicked) {
+                // No client-side WebUSB kick — print the slip the server
+                // just built through the EXACT same printReceipt() bridge
+                // checkout's receipt goes through (see submitDrawerPin()
+                // for the full reasoning).
+                if (!kicked && data?.print_payload) {
+                    try {
+                        await printReceipt(data.print_payload, terminalPrinterConfig());
+                        kicked = true;
+                    } catch (e) {
+                        console.warn('[cashier] drawer slip print failed', e);
+                    }
+                }
+                if (!kicked) {
                     this.$store.toasts.push({ type: 'info', message: this.labels.drawer_no_sale_open_manually || "Couldn't reach the printer — open the drawer manually." });
                 }
             } catch (e) {
@@ -1994,6 +2220,71 @@ export function cashierPage({
                 });
             } finally {
                 this.drawerNoSaleBusy = false;
+            }
+        },
+
+        /**
+         * Focus mode's rail button — same physical drawer-kick as
+         * submitDrawerNoSale() above, but reachable by any team member
+         * (the PIN itself is the gate; the server logs the PIN's owner
+         * as CashDrawerEntry.created_by, not the signed-in cashier).
+         */
+        openDrawerPin() {
+            if (!drawerPinUrl) return;
+            this.drawerPinForm = { pin: '' };
+            this.drawerPinOpen = true;
+        },
+
+        closeDrawerPin() {
+            this.drawerPinOpen = false;
+        },
+
+        async submitDrawerPin() {
+            if (this.drawerPinBusy || !drawerPinUrl) return;
+            if ((this.drawerPinForm.pin || '').length !== 6) return;
+            this.drawerPinBusy = true;
+
+            // Route through the exact same kick call checkout uses
+            // (_autoOpenDrawerIfNeeded) instead of a second, separately
+            // maintained copy of the same WebUSB open/claim/transfer
+            // sequence — one call site, one place to get right.
+            let kicked = await this._autoOpenDrawerIfNeeded(true);
+
+            try {
+                const { data } = await posPost(drawerPinUrl, { pin: this.drawerPinForm.pin });
+                this.drawerPinOpen = false;
+                this.logActivity('drawer', 'drawer.open_pin', { meta: { performed_by: data.performed_by } });
+                this.$store.toasts.push({
+                    type:    'success',
+                    message: (this.labels.drawer_no_sale_recorded || 'Drawer open recorded.') + (data.performed_by ? ` (${data.performed_by})` : ''),
+                });
+                // No client-side WebUSB kick — print the slip the server
+                // just built (resolved against the SHIFT's own bound
+                // terminal, same as the sale receipt, not this page's
+                // possibly-stale printer meta tag) through the EXACT same
+                // printReceipt() bridge checkout's receipt goes through.
+                // Its escpos_bytes is always empty here, so it always
+                // lands on browser-print — the side effect that pops a
+                // hardware-wired drawer, same mechanism checkout relies on.
+                if (!kicked && data.print_payload) {
+                    try {
+                        await printReceipt(data.print_payload, terminalPrinterConfig());
+                        kicked = true;
+                    } catch (e) {
+                        console.warn('[cashier] drawer slip print failed', e);
+                    }
+                }
+                if (!kicked) {
+                    this.$store.toasts.push({ type: 'info', message: this.labels.drawer_no_sale_open_manually || "Couldn't reach the printer — open the drawer manually." });
+                }
+            } catch (e) {
+                this.drawerPinForm = { pin: '' };
+                if (e?.status === 422 || e?.status === 429) {
+                    const msg = e.message || Object.values(e.errors || {}).flat()[0] || this.labels.drawer_no_sale_failed || 'Could not record the drawer open.';
+                    this.$store.toasts.push({ type: 'error', message: msg });
+                }
+            } finally {
+                this.drawerPinBusy = false;
             }
         },
 
@@ -2108,6 +2399,7 @@ export function cashierPage({
             // Apply first, then gate on the resulting TOTAL discount so the
             // check covers line + order discounts together.
             this.discount = { type: v > 0 ? kind : null, value: v, reason, reason_category };
+            this.logActivity('discount', 'discount.apply', { meta: { type: kind, value: v, reason } });
             this._gateDiscount(() => { this.discount = prev; });
             this.showDiscount = false;
         },
@@ -2117,6 +2409,7 @@ export function cashierPage({
             this.discountApproval = null;
             this._pendingApproval = null;
             this.showDiscount = false;
+            this.logActivity('discount', 'discount.remove');
         },
 
         /* ── Per-line discount (Slice 4) ───────────────────────────── */
@@ -2150,26 +2443,50 @@ export function cashierPage({
 
             const prev = line.discount || null;
             line.discount = v > 0 ? { type: kind, value: v } : null;
+            this.logActivity('discount', 'discount.line_apply', {
+                referenceType: 'Product', referenceId: line.product_id,
+                meta: { name: line.name, type: kind, value: v },
+            });
             this._gateDiscount(() => { line.discount = prev; });
             this.lineDiscOpen = false;
         },
 
         removeLineDiscount() {
             const line = this._lineDiscTarget;
-            if (line) line.discount = null;
+            if (line) {
+                line.discount = null;
+                this.logActivity('discount', 'discount.line_remove', {
+                    referenceType: 'Product', referenceId: line.product_id,
+                    meta: { name: line.name },
+                });
+            }
             this.lineDiscOpen = false;
         },
 
         /**
-         * Governance gate run AFTER a discount is applied (order or line).
-         * Every non-zero discount now needs a PIN — identifying WHO
-         * applied it, not just whether the logged-in session is allowed
-         * to. Under the store threshold any active user's PIN is
-         * accepted server-side; above it, only a manager's. `revert`
-         * undoes the applied discount if the cashier cancels the prompt.
+         * Governance gate — every non-zero discount needs a PIN,
+         * identifying WHO applied it. Under the store threshold any
+         * active user's PIN is accepted server-side; above it, only a
+         * manager's. `revert` undoes the applied discount if the cashier
+         * cancels the prompt.
+         *
+         * Called both right after a discount is applied (order or line)
+         * AND after any cart mutation that can shift the effective
+         * percentage a discount already banked approval for — increment/
+         * decrement/setQty/removeLine, and once more as a last-chance
+         * check inside complete() itself. Without those extra call
+         * sites, a cashier could get PIN-approved for (say) a 15% line
+         * discount, then remove an undiscounted line afterwards — same
+         * discount amount, now a bigger slice of a smaller cart — and
+         * ship a stale token the server correctly rejects with "You
+         * don't have permission to apply discounts.", forcing a second,
+         * confusing PIN prompt AFTER the cashier thought checkout was
+         * already approved.
+         *
+         * @returns {boolean} true if no PIN prompt was needed (already covered, or nothing to gate).
          */
         _gateDiscount(revert) {
-            if (this.discountAmt <= 0) return;
+            if (this.discountAmt <= 0) return true;
 
             const gross = this.subtotal;
             const effectivePct = gross > 0 ? (this.discountAmt / gross) * 100 : 0;
@@ -2179,7 +2496,9 @@ export function cashierPage({
                 this._pendingApproval = { revert, effectivePct };
                 this.approvalForm = { pin: '' };
                 this.approvalOpen = true;
+                return false;
             }
+            return true;
         },
 
         /** Does the pending discount exceed the store's threshold, i.e.
@@ -2282,6 +2601,11 @@ export function cashierPage({
                 // Confirmation toast — lib/http.js only toasts errors,
                 // not successes, so we explicitly surface the hold number.
                 const num = data?.sale?.number || data?.extra?.sale?.number;
+                const heldId = data?.sale?.id || data?.extra?.sale?.id || null;
+                this.logActivity('sale', 'sale.hold', {
+                    referenceType: 'Sale', referenceId: heldId,
+                    meta: { number: num, item_count: payload.items.length },
+                });
                 this.$store.toasts?.push({
                     type:    'success',
                     message: num
@@ -2366,6 +2690,7 @@ export function cashierPage({
                     }
                 }
                 this.heldDrawerOpen = false;
+                this.logActivity('sale', 'sale.hold_resume', { referenceType: 'Sale', referenceId: held.id });
             } catch (e) {
                 // http.js auto-handles 401/419/5xx; surface 422 business
                 // errors (e.g. the held order was already resumed/voided).
@@ -2399,6 +2724,10 @@ export function cashierPage({
                 // controller takes before force-deleting the hold.
                 this._applyReservation(data?.freed_items ?? [], +1);
                 this.heldList = this.heldList.filter((h) => h.id !== held.id);
+                this.logActivity('sale', 'sale.hold_void', {
+                    referenceType: 'Sale', referenceId: held.id,
+                    meta: { number: held.number, label: held.label },
+                });
                 this.$store.toasts?.push({
                     type:    'success',
                     message: (this.labels.held_order_deleted || 'Order :label deleted.').replace(':label', held.label || held.number),
@@ -2480,11 +2809,12 @@ export function cashierPage({
                 this.refundClientUuid = (window.crypto && typeof window.crypto.randomUUID === 'function')
                     ? window.crypto.randomUUID()
                     : 'rfb-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-                // Seed each row's `refundQty` to its remaining returnable
-                // qty — full refund as the one-tap default.
+                // Every row starts at 0 — the cashier picks what's being
+                // refunded by increasing only the affected lines, instead
+                // of having to zero out everything NOT being returned.
                 this.refundRows = (Array.isArray(data?.items) ? data.items : []).map((r) => ({
                     ...r,
-                    refundQty: parseFloat(r.remaining) || 0,
+                    refundQty: 0,
                 }));
                 this.refundLookupOpen = false;
                 this.refundOpen       = true;
@@ -2629,6 +2959,10 @@ export function cashierPage({
                 this.refundSuccessOpen = true;
                 this.refundOpen        = false;
                 this.refundApproval    = null; // spent — a new refund needs a fresh approval
+                this.logActivity('refund', 'refund.complete', {
+                    referenceType: 'SaleReturn', referenceId: this.refundSuccess?.id ?? null,
+                    meta: { number: this.refundSuccess?.number, sale_number: this.refundSuccess?.sale_number, grand_total: this.refundSuccess?.grand_total, items: payload.items },
+                });
                 // Reset so the next refund open starts clean.
                 this.refundSale = null;
                 this.refundRows = [];
@@ -2649,6 +2983,16 @@ export function cashierPage({
                     message:  msg,
                     duration: 6000,
                 });
+                // A rejected/expired/dead approval token means retrying
+                // as-is would just fail identically — clear it and pop
+                // the PIN prompt straight back up (same fix as the
+                // discount-approval flow's identical bug).
+                if (this.refundApproval) {
+                    this.refundApproval = null;
+                    this._pendingRefundApproval = { kind: 'invoice', amount: this.refundTotals.grand };
+                    this.refundApprovalForm = { pin: '' };
+                    this.refundApprovalOpen = true;
+                }
             } finally {
                 this.refundSubmitting = false;
             }
@@ -2702,6 +3046,73 @@ export function cashierPage({
                 }
             } finally {
                 this.refundApprovalSubmitting = false;
+            }
+        },
+
+        /** Overflow menu entry — every user can rotate their own PIN,
+         *  no permission gate (same self-service tier as the admin
+         *  "Change password" page). */
+        openChangePin() {
+            this.changePinStep = 'current';
+            this.changePinForm = { current_pin: '', pin: '', pin_confirmation: '' };
+            this.changePinOpen = true;
+        },
+
+        closeChangePin() {
+            if (this.changePinSubmitting) return;
+            this.changePinOpen = false;
+        },
+
+        /** Advances one pin-pad step at a time — `<x-cashier.pin-pad>`'s
+         *  on-complete fires this once its bound 6-digit field fills. */
+        async advanceChangePin() {
+            if (this.changePinStep === 'current') {
+                this.changePinStep = 'new';
+            } else if (this.changePinStep === 'new') {
+                this.changePinStep = 'confirm';
+            } else {
+                await this._submitChangePin();
+            }
+        },
+
+        async _submitChangePin() {
+            if (this.changePinSubmitting || !pinChangeUrl) return;
+            if (this.changePinForm.pin !== this.changePinForm.pin_confirmation) {
+                this.$store.toasts?.push({ type: 'error', message: this.labels.pin_mismatch || 'New PIN and confirmation don\'t match.' });
+                this.changePinForm.pin = '';
+                this.changePinForm.pin_confirmation = '';
+                this.changePinStep = 'new';
+                return;
+            }
+
+            this.changePinSubmitting = true;
+            try {
+                const { data } = await posPost(pinChangeUrl, {
+                    current_pin:      this.changePinForm.current_pin,
+                    pin:              this.changePinForm.pin,
+                    pin_confirmation: this.changePinForm.pin_confirmation,
+                });
+                this.changePinOpen = false;
+                this.$store.toasts?.push({ type: 'success', message: data?.message || this.labels.pin_updated || 'PIN changed.' });
+            } catch (e) {
+                // Wrong current PIN, mismatched confirmation, or a reused
+                // PIN all come back as a 422 field error — surface it and
+                // send the cashier back to the step that actually failed
+                // rather than making them redo all three from scratch.
+                const errors = e?.errors || {};
+                const msg = errors.current_pin?.[0] || errors.pin?.[0] || e?.message
+                    || this.labels.pin_change_failed || 'Could not change your PIN.';
+                this.$store.toasts?.push({ type: 'error', message: msg });
+                if (errors.current_pin) {
+                    this.changePinForm = { current_pin: '', pin: '', pin_confirmation: '' };
+                    this.changePinStep = 'current';
+                } else {
+                    this.changePinForm.pin = '';
+                    this.changePinForm.pin_confirmation = '';
+                    this.changePinStep = 'new';
+                }
+            } finally {
+                this.changePinSubmitting = false;
             }
         },
 
@@ -2884,6 +3295,10 @@ export function cashierPage({
                 this.blindRefundSuccessOpen = true;
                 this.blindRefundOpen        = false;
                 this.refundApproval         = null; // spent
+                this.logActivity('refund', 'refund.blind_complete', {
+                    referenceType: 'SaleReturn', referenceId: this.blindRefundSuccess?.id ?? null,
+                    meta: { number: this.blindRefundSuccess?.number, grand_total: this.blindRefundSuccess?.grand_total, items: payload.items },
+                });
                 this.blindRefundRows        = [];
                 this.printRefundReceipt(this.blindRefundSuccess);
             } catch (e) {
@@ -2891,6 +3306,14 @@ export function cashierPage({
                     || e?.errors?._action?.[0]
                     || this.labels.refund_failed || 'Refund failed.';
                 this.$store.toasts?.push({ type: 'error', message: msg, duration: 6000 });
+                // Same fix as the invoice-refund path above — a dead
+                // token means resending it would just fail again.
+                if (this.refundApproval) {
+                    this.refundApproval = null;
+                    this._pendingRefundApproval = { kind: 'blind', amount: this.blindRefundTotal };
+                    this.refundApprovalForm = { pin: '' };
+                    this.refundApprovalOpen = true;
+                }
             } finally {
                 this.blindRefundSubmitting = false;
             }
@@ -2957,6 +3380,19 @@ export function cashierPage({
 
         get sumLineDiscounts() {
             return this.cart.reduce((s, l) => s + this.lineOwnDiscount(l), 0);
+        },
+
+        /** Cart lines carrying their own discount — shown in the PIN
+         *  approval modal so the approver sees what they're signing off
+         *  on, not just a bare percentage. */
+        get discountedLines() {
+            return this.cart
+                .filter((l) => this.lineOwnDiscount(l) > 0)
+                .map((l) => ({
+                    name:   l.name,
+                    amount: this.lineOwnDiscount(l),
+                    label:  l.discount?.type === 'pct' ? `${l.discount.value}%` : null,
+                }));
         },
 
         /** Base the ORDER-level discount applies to (gross minus line discounts). */
@@ -3045,8 +3481,37 @@ export function cashierPage({
             return this.sumLineDiscounts + this.orderDiscountAmt;
         },
 
-        get grandTotal() {
+        /** Grand total before any loyalty-points redemption — the figure
+         *  points redemption is capped against, and what the redeem-value
+         *  getter below is computed relative to. */
+        get grandTotalBeforePoints() {
             return Math.max(0, this.subtotal - this.discountAmt + this.taxAdded);
+        },
+
+        /** Cash value of `pointsToRedeem` at the company's configured
+         *  redeem rate — subtracted from the grand total AFTER tax
+         *  (mirrors CompleteSale's server-side redemption block: this is
+         *  not a discount, it must never shrink the taxable base). */
+        get pointsRedeemedValue() {
+            const rate = Number(this.settings?.loyalty_redeem_rate) || 0;
+            if (!this.pointsToRedeem || rate <= 0) return 0;
+            const raw = this.pointsToRedeem / rate;
+            return Math.min(raw, this.grandTotalBeforePoints);
+        },
+
+        /** Upper bound for the redeem input — capped by both the
+         *  customer's actual balance and what the sale total can absorb
+         *  (redeeming past the total would make no sense). */
+        get maxRedeemablePoints() {
+            const rate = Number(this.settings?.loyalty_redeem_rate) || 0;
+            const balance = Number(this.customer?.loyalty_points) || 0;
+            if (rate <= 0) return 0;
+            const totalAsPoints = Math.floor(this.grandTotalBeforePoints * rate);
+            return Math.max(0, Math.min(balance, totalAsPoints));
+        },
+
+        get grandTotal() {
+            return Math.max(0, this.grandTotalBeforePoints - this.pointsRedeemedValue);
         },
 
         get itemCount() {
@@ -3144,6 +3609,14 @@ export function cashierPage({
             return window.posFormatMoney
                 ? window.posFormatMoney(value)
                 : Number(value || 0).toFixed(2);
+        },
+
+        /** The active currency's decimal precision (2 for USD, 3 for
+         *  JOD/KWD, …) — use this instead of a hardcoded `.toFixed(2)`
+         *  anywhere a numeric input value (not a display string) is
+         *  seeded, or a 3-decimal currency silently loses its last digit. */
+        _moneyDecimals() {
+            return window.posMoneyDecimals ? window.posMoneyDecimals() : 2;
         },
 
         /* ── Customer-Facing Display (CFD) ─────────────────────────
@@ -3247,7 +3720,17 @@ export function cashierPage({
             // Only online sales carry a server receipt link — an offline
             // sale isn't on the server yet, so its thank-you shows no QR.
             const receiptUrl = s.public_receipt_url || null;
-            const dwellMs = 9000;
+            // Set only when no customer was attached at checkout — lets a
+            // walk-in scan to self-attach + earn points on this purchase.
+            const claimUrl = s.claim_url || null;
+            // Claiming needs time to scan + fill a form, not just glance at
+            // a receipt — give it a much longer dwell than the plain
+            // thank-you screen. Cut short the instant the next sale starts
+            // (see publishCfd()'s idle-suppression check + the x-effect in
+            // cashier/index.blade.php — any non-idle cart state, i.e. the
+            // first scanned item, overrides this immediately regardless of
+            // the dwell timer still running).
+            const dwellMs = claimUrl ? 60000 : 9000;
 
             cfdSuppressIdleUntil = Date.now() + dwellMs;
 
@@ -3259,6 +3742,7 @@ export function cashierPage({
                     change_due:  this.money(change),
                     has_change:  parseFloat(change) > 0,
                     receipt_url: receiptUrl,
+                    claim_url:   claimUrl,
                 },
             });
 
@@ -3361,7 +3845,7 @@ export function cashierPage({
             this.payOpen      = true;
             this.payments     = [];                              // start with no committed rows
             this.payMethodId  = this.paymentMethods[0]?.id ?? null;
-            this.payTendered  = String(this.grandTotal.toFixed(2));   // seed with full grand
+            this.payTendered  = String(this.grandTotal.toFixed(this._moneyDecimals()));   // seed with full grand
             this.payReference = '';
             this.$nextTick(() => {
                 document.querySelector('[data-cashier-tendered]')?.focus();
@@ -3394,7 +3878,7 @@ export function cashierPage({
                 this.walletBrand  = null;
             }
             this.payMethodId  = method.id;
-            this.payTendered  = String(this.payRemaining.toFixed(2));
+            this.payTendered  = String(this.payRemaining.toFixed(this._moneyDecimals()));
             this.payReference = '';
 
             // Mint a fresh `tr` (transaction reference) the moment the
@@ -3571,7 +4055,7 @@ export function cashierPage({
             this._stripePaymentId = null;
             // Clear the form and reseed it with the new `payRemaining`.
             this.payReference = '';
-            this.payTendered  = String(this.payRemaining.toFixed(2));
+            this.payTendered  = String(this.payRemaining.toFixed(this._moneyDecimals()));
             this.$nextTick(() => {
                 document.querySelector('[data-cashier-tendered]')?.focus();
                 document.querySelector('[data-cashier-tendered]')?.select?.();
@@ -3585,7 +4069,7 @@ export function cashierPage({
             this.payments.splice(index, 1);
             // After removal there's more due again — preload the input
             // to the new `payRemaining` so the next pick is one-tap.
-            this.payTendered = String(this.payRemaining.toFixed(2));
+            this.payTendered = String(this.payRemaining.toFixed(this._moneyDecimals()));
         },
 
         /**
@@ -3625,7 +4109,7 @@ export function cashierPage({
 
         /** Quick-tender helpers — populate `tendered` with common denominations. */
         quickTender(amount) {
-            this.payTendered = String(amount.toFixed(2));
+            this.payTendered = String(amount.toFixed(this._moneyDecimals()));
         },
 
         /* ── POS payment session (QR-chooser flow) ─────────────
@@ -3731,6 +4215,12 @@ export function cashierPage({
                     local_uuid:   this.clientUuid,
                     items:        this._buildSaleItems(),
                     paid_already: this.paymentsTotal.toFixed(4),
+                    // Same discount-governance inputs complete() sends —
+                    // without these the server can't tell an approved
+                    // discount from a rejected one, and would otherwise
+                    // charge the discounted amount regardless.
+                    customer_id:        this.customer?.id ?? null,
+                    discount_approval:  this.discountApproval?.token ?? null,
                     // Cart snapshot so the customer's pay page can show
                     // the full breakdown (items, kit contents, per-line
                     // tax, discount, totals). Names + numbers only.
@@ -3813,7 +4303,7 @@ export function cashierPage({
                     // total (the whole point of the server-authoritative
                     // fix). Falls back to the JS remainder if the session
                     // somehow lacks an amount.
-                    this.payTendered = String(this.paySession?.amount ?? this.payRemaining.toFixed(2));
+                    this.payTendered = String(this.paySession?.amount ?? this.payRemaining.toFixed(this._moneyDecimals()));
                     await this.complete();
                 } else if (this.payStatus === 'failed' || this.payStatus === 'expired' || this.payStatus === 'cancelled') {
                     this._stopPaymentTimers();
@@ -3921,6 +4411,17 @@ export function cashierPage({
 
         async complete() {
             if (this.submitting || !this.canComplete) return;
+            // Last-chance discount re-check — a safety net for any cart
+            // mutation the reactive hooks above (increment/decrement/
+            // setQty/removeLine) didn't cover. This is still a CLIENT-
+            // side ratio check only — it can't see the token's 5-minute
+            // server-side TTL expiring, or a price changing between
+            // approval and checkout; those still surface as the
+            // server's 422 (the fix there is simply: get PIN-approved
+            // again). But it does close the common, confusing case
+            // where the cart itself changed after approval and the
+            // cashier had no idea the approval no longer covered it.
+            if (!this._gateDiscount(null)) return;
             // If the current row is valid AND the cashier hasn't already
             // tapped "Add payment", fold it in implicitly so single-tender
             // (the 90% case) stays one click. Track whether we did so we
@@ -3945,6 +4446,11 @@ export function cashierPage({
                 discount_value:           this.discount.type ? this.discount.value : null,
                 discount_reason:          this.discount.reason ?? null,
                 discount_reason_category: this.discount.reason_category ?? null,
+                // Loyalty points redeemed as a post-tax cash reduction —
+                // see CompleteSale's doc-comment for why this is a
+                // separate header field, not folded into the discount
+                // fields above.
+                points_redeemed: this.pointsToRedeem > 0 ? this.pointsToRedeem : null,
                 items: this._buildSaleItems(),
                 // Send the full split-tender list, stripping the display-
                 // only fields (method_name / method_type) the server
@@ -3974,59 +4480,12 @@ export function cashierPage({
             // number — the sync engine will POST it as soon as
             // connectivity returns. Idempotency is handled server-side
             // by `CompleteSale` deduping on `sales.local_uuid`, so even
-            // if the queue retries we don't double-post.
+            // if the queue retries we don't double-post. Shares
+            // `_queueSaleOffline()` with the online path's slow-link
+            // fallback just below.
             if (this.connectivity.status === 'offline') {
                 try {
-                    // Snapshot the cart/payments/totals for the receipt
-                    // BEFORE `enqueueSale` + the reset below wipe them —
-                    // this is what the client-side renderer prints so the
-                    // cashier can hand over a receipt with no server round-
-                    // trip (offline-sync doc §13).
-                    const offlineNumber = 'OFF-' + (this.clientUuid || '').slice(0, 8).toUpperCase();
-                    const receiptSnapshot = this.buildOfflineReceiptSnapshot(offlineNumber);
-
-                    await enqueueSale(payload);
-                    // Build a fake "successSale" so the same success
-                    // overlay renders without branching the markup. The
-                    // OFF-XXXXXXXX prefix mirrors docs §10.3; the real
-                    // sale number is assigned on sync (Slice 4 surfaces
-                    // it via the sync log).
-                    this.successSale = {
-                        id:              null,
-                        number:          offlineNumber,
-                        grand_total:     receiptSnapshot.totals.grand_total,
-                        change_returned: receiptSnapshot.totals.change_returned,
-                        offline:         true,
-                        // Carried so the overlay's Print/View can render the
-                        // receipt without re-reading the (now-cleared) cart.
-                        receipt:         receiptSnapshot,
-                    };
-                    this.successOpen = true;
-                    this.payOpen     = false;
-                    this.cart = [];
-                    this.customer = null;
-                    this.discount = { type: null, value: 0 };
-                this.discountApproval = null; this._pendingApproval = null;
-                    this.payments = [];
-                    this.payTendered = '';
-                    this.payReference = '';
-                    this._resetClientUuid();
-
-                    // Fire-and-forget drain attempt — usually a no-op
-                    // (we know we're offline) but harmless if we just
-                    // came back online between offline-check and now.
-                    drainQueue();
-
-                    this.$store.toasts?.push({
-                        type:    'success',
-                        message: this.labels.sale_queued_offline || 'Sale queued — will sync when online.',
-                        duration: 4000,
-                    });
-
-                    // Cash was physically handled regardless of sync state —
-                    // the drawer still opens now. Printing waits for the
-                    // real sale id from sync (see printSaleReceipt() guard).
-                    this._autoOpenDrawerIfNeeded(shouldOpenDrawer);
+                    await this._queueSaleOffline(payload, shouldOpenDrawer);
                 } catch (e) {
                     this.$store.toasts?.push({
                         type:    'error',
@@ -4035,7 +4494,7 @@ export function cashierPage({
                     });
                     if (foldedIn && this.payments.length > 0) {
                         this.payments.pop();
-                        this.payTendered = String(this.payRemaining.toFixed(2));
+                        this.payTendered = String(this.payRemaining.toFixed(this._moneyDecimals()));
                     }
                 } finally {
                     this.submitting = false;
@@ -4045,13 +4504,26 @@ export function cashierPage({
 
             // ── Online path ───────────────────────────────────
             try {
-                const { data } = await posPost(completeUrl, payload);
+                // Bounded well under http.js's flat 30s default — on a
+                // slow (not dead) link, a stuck spinner for up to 30s is
+                // worse than falling back to the offline queue after 10s.
+                // Safe to do unconditionally: CompleteSale dedupes on
+                // `local_uuid`, so even if the server actually DOES
+                // finish processing this exact request after we've given
+                // up and queued it, the eventual sync repost is a no-op,
+                // never a duplicate sale.
+                const { data } = await posPost(completeUrl, payload, { timeout: 10_000 });
                 this.successSale = data?.sale ?? null;
                 this.successOpen = true;
                 this.payOpen = false;
+                this.logActivity('sale', 'sale.complete', {
+                    referenceType: 'Sale', referenceId: this.successSale?.id ?? null,
+                    meta: { number: this.successSale?.number, grand_total: this.successSale?.grand_total, item_count: payload.items.length },
+                });
 
                 this.cart = [];
                 this.customer = null;
+                this.pointsToRedeem = 0;
                 this.discount = { type: null, value: 0 };
                 this.discountApproval = null; this._pendingApproval = null;
                 this.payments = [];
@@ -4076,6 +4548,26 @@ export function cashierPage({
                 // sale" to start the next ring-up. Escape or scrim-
                 // click dismisses; the receipt links open in a new tab.
             } catch (e) {
+                // status === 0 means the request never got a real answer
+                // from the server — a client-side timeout (our 10s cap
+                // above) or a dropped connection, NOT a definitive 4xx/5xx
+                // the server actually returned. That's exactly the "slow
+                // link" case this whole feature is for: fall back to the
+                // same offline queue a true offline checkout uses, rather
+                // than leaving the cashier looking at a scary generic
+                // error for what's really just a stalled request. A real
+                // validation/server error (422 insufficient-stock, 500,
+                // etc.) skips this — queuing THOSE would just fail again
+                // identically during background sync.
+                if (e?.status === 0) {
+                    try {
+                        await this._queueSaleOffline(payload, shouldOpenDrawer);
+                        return;
+                    } catch (queueError) {
+                        e = queueError;
+                    }
+                }
+
                 // The interceptor in lib/http.js auto-toasts 5xx, but
                 // 422 (which is what `InsufficientStock` and the rest
                 // of CompleteSale's RuntimeException paths return) is
@@ -4090,16 +4582,95 @@ export function cashierPage({
                     message:  msg,
                     duration: 6000,
                 });
+                // A discount-governance 422 (bad/expired/percent-exceeded
+                // token — CompleteSale's AuthorizeDiscount can reject the
+                // same generic way for several different reasons) means
+                // whatever token we're holding is dead. Without this, a
+                // cashier who doesn't immediately retry (reads the error,
+                // asks a manager, etc.) keeps resending that same dead
+                // token on every subsequent attempt — the 5-minute TTL
+                // guarantees it, but a stock mismatch or price change
+                // invalidating it works the same way. Clear it and pop
+                // the PIN prompt straight back up instead of leaving the
+                // cashier to retry blind into the identical failure.
+                if (this.discountAmt > 0 && this.discountApproval) {
+                    this.discountApproval = null;
+                    this._gateDiscount(null);
+                }
                 // Roll back the implicit fold-in so the cashier can edit
                 // the current row and retry — otherwise the failed row
                 // would still appear in the committed list.
                 if (foldedIn && this.payments.length > 0) {
                     this.payments.pop();
-                    this.payTendered = String(this.payRemaining.toFixed(2));
+                    this.payTendered = String(this.payRemaining.toFixed(this._moneyDecimals()));
                 }
             } finally {
                 this.submitting = false;
             }
+        },
+
+        /**
+         * Queue the current sale to IndexedDB and paint the success
+         * overlay with a provisional OFF-prefixed number — shared by the
+         * "we already know we're offline" path and the online path's
+         * slow-link timeout fallback in complete(). The sync engine
+         * POSTs it for real as soon as connectivity is confirmed good;
+         * `CompleteSale` deduping on `sales.local_uuid` makes this safe
+         * even if the original (timed-out) request also lands server-side.
+         */
+        async _queueSaleOffline(payload, shouldOpenDrawer) {
+            // Snapshot the cart/payments/totals for the receipt BEFORE
+            // `enqueueSale` + the reset below wipe them — this is what
+            // the client-side renderer prints so the cashier can hand
+            // over a receipt with no server round-trip (offline-sync
+            // doc §13).
+            const offlineNumber = 'OFF-' + (this.clientUuid || '').slice(0, 8).toUpperCase();
+            const receiptSnapshot = this.buildOfflineReceiptSnapshot(offlineNumber);
+
+            await enqueueSale(payload);
+            // Build a fake "successSale" so the same success overlay
+            // renders without branching the markup. The OFF-XXXXXXXX
+            // prefix mirrors docs §10.3; the real sale number is
+            // assigned on sync (Slice 4 surfaces it via the sync log).
+            this.successSale = {
+                id:              null,
+                number:          offlineNumber,
+                grand_total:     receiptSnapshot.totals.grand_total,
+                change_returned: receiptSnapshot.totals.change_returned,
+                offline:         true,
+                // Carried so the overlay's Print/View can render the
+                // receipt without re-reading the (now-cleared) cart.
+                receipt:         receiptSnapshot,
+            };
+            this.successOpen = true;
+            this.payOpen     = false;
+            this.cart = [];
+            this.customer = null;
+            this.discount = { type: null, value: 0 };
+            this.discountApproval = null; this._pendingApproval = null;
+            this.payments = [];
+            this.payTendered = '';
+            this.payReference = '';
+            this._resetClientUuid();
+
+            // Fire-and-forget drain attempt — usually a no-op (we know
+            // we're offline, or just decided the link's too slow to
+            // trust) but harmless if we're actually back online.
+            drainQueue();
+
+            this.logActivity('sale', 'sale.complete_offline', {
+                meta: { number: offlineNumber, grand_total: receiptSnapshot.totals.grand_total },
+            });
+            this.$store.toasts?.push({
+                type:    'success',
+                message: this.labels.sale_queued_offline || 'Sale queued — will sync when online.',
+                duration: 4000,
+            });
+
+            // Cash was physically handled regardless of sync state — the
+            // drawer still opens now. Printing waits for the real sale
+            // id from sync (see printSaleReceipt()'s guard).
+            this._autoOpenDrawerIfNeeded(shouldOpenDrawer);
         },
 
         /**
@@ -4125,17 +4696,50 @@ export function cashierPage({
          * Best-effort: a printer that's unplugged or in browser-print mode
          * just means the cashier opens the drawer by hand, same as the
          * existing "Open drawer (no sale)" flow.
+         *
+         * This is the ONE kick call site every "open the drawer" action
+         * on this page routes through (submitDrawerNoSale(), the focus-
+         * mode PIN button) — not just checkout — so there's a single
+         * place to get the WebUSB sequencing right instead of three
+         * near-identical copies quietly drifting apart.
+         *
+         * @returns {Promise<boolean>} true if the drawer actually kicked.
          */
+        /**
+         * One chokepoint every tracked cashier action logs through — cart
+         * edits, discounts, hold/void, drawer kicks, shift open/close,
+         * prints, checkout, refunds, and client-side JS errors (see
+         * `_installErrorLogging()` in init()). Best-effort, fire-and-
+         * forget: a logging failure NEVER blocks or errors out the
+         * cashier's actual action, same convention as printLogUrl.
+         *
+         * @param {string} type    'cart'|'discount'|'sale'|'refund'|'drawer'|'shift'|'print'|'auth'|'error'
+         * @param {string} action  specific event, e.g. 'cart.add', 'sale.complete'
+         * @param {object} [opts]  { referenceType, referenceId, meta }
+         */
+        logActivity(type, action, opts = {}) {
+            if (!activityLogUrl) return;
+            posPost(activityLogUrl, {
+                type,
+                action,
+                reference_type: opts.referenceType ?? null,
+                reference_id:   opts.referenceId ?? null,
+                meta:           opts.meta ?? null,
+            }).catch(() => { /* best-effort — never surface to the cashier */ });
+        },
+
         async _autoOpenDrawerIfNeeded(shouldOpenDrawer) {
-            if (!shouldOpenDrawer) return;
+            if (!shouldOpenDrawer) return false;
             const cfg = terminalPrinterConfig();
-            if (cfg.mode !== 'webusb') return;
+            if (cfg.mode !== 'webusb') return false;
             try {
                 await openDrawer(cfg);
+                return true;
             } catch (e) {
                 if (!(e instanceof DrawerKickUnavailable)) {
                     console.warn('[cashier] auto drawer kick failed', e);
                 }
+                return false;
             }
         },
 

@@ -17,6 +17,22 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+/* ───────────────────────── Queue worker ─────────────────────
+ * This app has no dedicated queue-worker process (no
+ * `queue:work`/`queue:listen` supervisor program — checked) — anything
+ * dispatched via `ShouldQueue` (the pre-existing AutoTranslateLanguageJob,
+ * and now PrepareCameraClip) would just sit in the `jobs` table forever
+ * with QUEUE_CONNECTION=database. Rather than adding an always-on
+ * worker process for what's still low job volume, piggyback on the
+ * scheduler that's already running: drain whatever's queued once a
+ * minute and stop. `--max-time` keeps a slow run (a large camera clip)
+ * from blocking the NEXT scheduler tick indefinitely.
+ */
+Schedule::command('queue:work --stop-when-empty --max-time=280 --tries=1')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->name('pos:queue-worker');
+
 /* ───────────────────────── Backups ─────────────────────────
  * Three schedules — only the one that matches the configured
  * frequency actually runs (the `when()` gate filters the rest).
@@ -92,6 +108,22 @@ if (config('pos.license.recheck')) {
         ->dailyAt('04:00')
         ->name('pos:license-recheck');
 }
+
+/* ───────────────────────── Camera streams (beta) ────────────
+ * Kills any RTSP→HLS ffmpeg process nobody's watching anymore. See
+ * App\Console\Commands\CleanupCameraStreams / HlsStreamManager.
+ */
+Schedule::command('cameras:cleanup-streams')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->name('pos:cameras-cleanup-streams');
+
+// Prepared clips (async sale/activity footage requests, not live
+// streams) — 24h expiry, checked hourly is plenty.
+Schedule::command('cameras:cleanup-clips')
+    ->hourly()
+    ->withoutOverlapping()
+    ->name('pos:cameras-cleanup-clips');
 
 /* ───────────────────────── Demo reset ──────────────────────
  * Public-demo housekeeping ONLY (gated by POS_DEMO_MODE). Wipes

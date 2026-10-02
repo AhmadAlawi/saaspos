@@ -35,7 +35,9 @@ use Illuminate\Support\Facades\DB;
  *     'discount_total'  => '350.0000',
  *
  *     'payment_totals'  => [
- *       ['method_id' => 1, 'code' => 'cash', 'name' => 'Cash', 'type' => 'cash', 'amount' => '3800.0000'],
+ *       // 'amount' is NET of same-method refunds (gross - refunded) —
+ *       // what the report should show as "Cash"/"Card" received.
+ *       ['method_id' => 1, 'code' => 'cash', 'name' => 'Cash', 'type' => 'cash', 'amount' => '3600.0000', 'gross' => '3800.0000', 'refunded' => '200.0000'],
  *       …
  *     ],
  *     'drawer_open_no_sale_count' => 0,
@@ -44,6 +46,20 @@ use Illuminate\Support\Facades\DB;
 class ComputeShiftTotals
 {
     /** @return array<string, mixed> */
+    /**
+     * Sale statuses that represent a real, rung-up transaction — a
+     * partial or full refund is tracked separately (`SaleReturn`,
+     * `refunds_total`/`cash_refunds` below) and nets against this, so
+     * the ORIGINAL sale must keep counting here at its full gross
+     * amount. Excluding it entirely on refund (the previous behaviour)
+     * made a sale vanish from the total instead of just being netted.
+     */
+    private const COUNTED_SALE_STATUSES = [
+        Sale::STATUS_COMPLETED,
+        Sale::STATUS_PARTIALLY_REFUNDED,
+        Sale::STATUS_REFUNDED,
+    ];
+
     public function __invoke(Shift $shift): array
     {
         $shiftId = (int) $shift->id;
@@ -51,7 +67,7 @@ class ComputeShiftTotals
         // ── Sales ────────────────────────────────────────────────
         $salesAgg = Sale::query()
             ->where('shift_id', $shiftId)
-            ->where('status', Sale::STATUS_COMPLETED)
+            ->whereIn('status', self::COUNTED_SALE_STATUSES)
             ->selectRaw('COUNT(*) AS c, COALESCE(SUM(grand_total),0) AS gt, COALESCE(SUM(tax_total),0) AS tt, COALESCE(SUM(discount_total),0) AS dt')
             ->first();
 
@@ -70,6 +86,18 @@ class ComputeShiftTotals
         $refundsTotal = $this->fmt($refundsAgg->gt ?? '0');
         $cashRefunds  = $this->fmt($refundsAgg->cash ?? '0');
 
+        // Per-method refund amounts — `payment_totals` below nets these
+        // out of each method's gross tender, so "Cash"/"Card" on the
+        // report reflect what's actually still in the drawer/settled,
+        // not just what was rung up before any refund gave it back.
+        $refundsByMethod = SaleReturn::query()
+            ->where('shift_id', $shiftId)
+            ->whereNotNull('refund_method_id')
+            ->selectRaw('refund_method_id, COALESCE(SUM(grand_total),0) AS amt')
+            ->groupBy('refund_method_id')
+            ->get()
+            ->pluck('amt', 'refund_method_id');
+
         // ── Cash payments received during the shift ──────────────
         // Join payments to methods so we can isolate cash. Doing it as
         // one query keeps the math single-pass even on busy shifts.
@@ -77,7 +105,7 @@ class ComputeShiftTotals
             ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
             ->join('payment_methods', 'payment_methods.id', '=', 'sale_payments.payment_method_id')
             ->where('sales.shift_id', $shiftId)
-            ->where('sales.status', Sale::STATUS_COMPLETED)
+            ->whereIn('sales.status', self::COUNTED_SALE_STATUSES)
             ->selectRaw('payment_methods.id AS method_id, payment_methods.code, payment_methods.name, payment_methods.type, COALESCE(SUM(sale_payments.amount),0) AS amt')
             ->groupBy('payment_methods.id', 'payment_methods.code', 'payment_methods.name', 'payment_methods.type')
             ->get();
@@ -85,34 +113,43 @@ class ComputeShiftTotals
         $cashSales = '0';
         $paymentTotals = [];
         foreach ($paymentRows as $row) {
-            $amt = $this->fmt($row->amt);
+            $gross  = $this->fmt($row->amt);
+            $refund = $this->fmt($refundsByMethod[$row->method_id] ?? '0');
+            $net    = bcsub($gross, $refund, 4);
             if ($row->type === 'cash') {
-                $cashSales = bcadd($cashSales, $amt, 4);
+                $cashSales = bcadd($cashSales, $gross, 4);
             }
             $paymentTotals[] = [
                 'method_id' => (int) $row->method_id,
                 'code'      => (string) $row->code,
                 'name'      => (string) $row->name,
                 'type'      => (string) $row->type,
-                'amount'    => $amt,
+                'amount'    => $net,
+                'gross'     => $gross,
+                'refunded'  => $refund,
             ];
         }
 
         // Backfill zero-rows for active cash + non-cash methods that
         // happened to have no payments this shift, so the Z-report has
-        // a stable rendering.
+        // a stable rendering. A method can still have refunds with zero
+        // sales this shift (refunding a sale rung up on a prior shift),
+        // so it nets in here too rather than just showing '0.0000'.
         $seen = collect($paymentTotals)->pluck('method_id')->all();
         $missing = PaymentMethod::query()
             ->where('is_active', true)
             ->whereNotIn('id', $seen)
             ->get();
         foreach ($missing as $m) {
+            $refund = $this->fmt($refundsByMethod[$m->id] ?? '0');
             $paymentTotals[] = [
                 'method_id' => (int) $m->id,
                 'code'      => (string) $m->code,
                 'name'      => (string) $m->name,
                 'type'      => (string) $m->type,
-                'amount'    => '0.0000',
+                'amount'    => bcsub('0.0000', $refund, 4),
+                'gross'     => '0.0000',
+                'refunded'  => $refund,
             ];
         }
 
@@ -185,6 +222,9 @@ class ComputeShiftTotals
             'expected_cash'             => $this->fmt((string) $expectedCash),
             'sales_count'               => $salesCount,
             'sales_total'               => $salesTotal,
+            // "Total after all" — sales_total net of refunds_total, the
+            // single bottom-line figure for the shift after returns.
+            'net_sales_total'           => bcsub($salesTotal, $refundsTotal, 4),
             'refunds_count'             => $refundsCount,
             'refunds_total'             => $refundsTotal,
             'tax_total'                 => $taxTotal,

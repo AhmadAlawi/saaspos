@@ -40,7 +40,18 @@ class PrepareZReportPayload
         $company  = Company::current() ?? new Company();
         $fallback = $company->receipt_paper_size ?: '80mm';
         $config   = PrinterConfig::fromTerminal($terminal, $fallback);
-        $totals   = ($this->compute)($shift);
+
+        // A closed shift's totals are frozen at close time (see
+        // CloseShift) — reprinting must read that snapshot verbatim, not
+        // recompute live. A live recompute would drift the moment any
+        // sale on this shift changes status afterward (e.g. a refund
+        // processed days later flips a sale to partially_refunded),
+        // silently rewriting an already-closed shift's Z-report.
+        // Falls back to a live compute only for shifts closed before
+        // `frozen_totals` existed, or if the shift is still open.
+        $totals = ($shift->isClosed() && $shift->frozen_totals)
+            ? $shift->frozen_totals
+            : ($this->compute)($shift);
 
         // Computed here (not in an inline @php block in the view) so it's
         // always a real, unambiguous view variable — the store's address

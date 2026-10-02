@@ -556,6 +556,34 @@
                                 :tile-hint="__('products.image.hint')" />
                         </div>
                     </div>
+
+                    {{-- Captured photos — the mobile floor-capture tool's gallery,
+                         separate from the single image above. Read-only review;
+                         deleting a bad shot happens on the mobile /product-photos
+                         tool itself (where the employee is already looking at it). --}}
+                    @if ($isEdit && $product->relationLoaded('photos'))
+                        <div class="card" style="margin-top:20px;">
+                            <div class="card-header">
+                                <div>
+                                    <div class="card-title">{{ __('products.photos_gallery.title') }}</div>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                @if ($product->photos->isEmpty())
+                                    <p class="field-help">{{ __('products.photos_gallery.empty') }}</p>
+                                @else
+                                    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:8px;">
+                                        @foreach ($product->photos as $photo)
+                                            <a href="{{ $photo->url }}" target="_blank" rel="noopener"
+                                               style="display:block; aspect-ratio:1; border-radius:8px; overflow:hidden; background:#eee;">
+                                                <img src="{{ $photo->url }}" alt="" style="width:100%; height:100%; object-fit:cover; display:block;">
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 {{-- Right column: Status --}}

@@ -67,7 +67,7 @@ class PrintController extends Controller
     /** Record a print attempt (success / failed / queued). */
     public function log(RecordPrintLogRequest $request, RecordPrintLog $record): JsonResponse
     {
-        $log = ($record)($request->validated());
+        $log = ($record)($request->validated(), $request);
 
         return response()->json(['ok' => true, 'id' => $log->id]);
     }

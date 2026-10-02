@@ -14,6 +14,8 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('mobile.api.auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/stores', [AuthController::class, 'stores']);
+    Route::post('/switch-store', [AuthController::class, 'switchStore']);
 
     Route::get('/products/lookup', [ProductController::class, 'lookup']);
     Route::get('/products/search', [ProductController::class, 'search']);
