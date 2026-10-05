@@ -1498,27 +1498,3 @@ Route::get('/demo-reset', function () {
         : 'Demo reset FAILED: '.($log?->error_message ?? 'unknown error')
     ).'</pre>';
 });
-
-// TEMP: one-off DB export for the Railway->VPS migration. Same pattern
-// as the license-server's own temp route. Remove immediately after use.
-Route::get('_tmp/export-db', function (\Illuminate\Http\Request $request) {
-    abort_unless($request->query('secret') === 'vps-migrate-2026-10-06', 403);
-    $pdo = \Illuminate\Support\Facades\DB::connection()->getPdo();
-    $tables = $pdo->query('SHOW TABLES')->fetchAll(\PDO::FETCH_COLUMN);
-    $sql = "SET FOREIGN_KEY_CHECKS=0;\n";
-    foreach ($tables as $table) {
-        $create = $pdo->query("SHOW CREATE TABLE `{$table}`")->fetch(\PDO::FETCH_ASSOC);
-        $sql .= "DROP TABLE IF EXISTS `{$table}`;\n" . $create['Create Table'] . ";\n";
-        $rows = $pdo->query("SELECT * FROM `{$table}`")->fetchAll(\PDO::FETCH_ASSOC);
-        foreach ($rows as $row) {
-            $cols = array_map(fn($c) => "`{$c}`", array_keys($row));
-            $vals = array_map(fn($v) => $v === null ? 'NULL' : $pdo->quote((string) $v), array_values($row));
-            $sql .= "INSERT INTO `{$table}` (" . implode(',', $cols) . ") VALUES (" . implode(',', $vals) . ");\n";
-        }
-    }
-    $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
-    return response($sql, 200, [
-        'Content-Type' => 'application/sql',
-        'Content-Disposition' => 'attachment; filename="tenant.sql"',
-    ]);
-});
